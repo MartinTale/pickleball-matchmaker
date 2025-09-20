@@ -31,7 +31,8 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
+.env*
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -40,4 +41,4 @@ yarn-error.*
 /ios
 /android
 
-.env
+.mcp.json
