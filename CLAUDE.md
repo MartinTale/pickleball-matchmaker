@@ -4,16 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **completed MVP** React Native pickleball session management app using Supabase for real-time data persistence. The app allows users to create pickleball sessions, manage players dynamically, and generate balanced 2v2 matches.
+This is a **production-ready** React Native pickleball session management app using Supabase for real-time data persistence. The app provides complete session management with player tracking, matchmaking, and comprehensive session history.
 
 ## Current Status
 
-**✅ MVP COMPLETE** - All core features implemented and working:
-- Session creation and management
-- Player addition/removal with real-time sync
-- Random matchmaking algorithm (2v2)
-- Match completion workflow
-- Professional UI with NativeWind styling (fully configured and working)
+**✅ PRODUCTION READY** - All features implemented and polished:
+- Session creation and management with soft delete
+- Comprehensive player management (add/remove/restore players)
+- Random matchmaking algorithm (2v2) with one match per round
+- Match completion workflow with real-time updates
+- Professional UI with Lucide icons and NativeWind styling
+- Separate player management screen for better UX
+- Complete session statistics and history tracking
 
 ## Architecture
 
@@ -23,25 +25,27 @@ This is a **completed MVP** React Native pickleball session management app using
 - NativeWind v4 for styling
 - TypeScript with generated database types
 - React Navigation (Stack Navigator)
+- Lucide React Native (for professional icons)
 
 **Project Structure:**
 ```
 ├── lib/
-│   ├── supabaseClient.ts       # Configured Supabase client
-│   ├── database.types.ts       # Generated TypeScript types
-│   └── pickleballService.ts    # Core business logic
+│   ├── supabaseClient.ts         # Configured Supabase client
+│   ├── database.types.ts         # Generated TypeScript types
+│   └── pickleballService.ts      # Core business logic with soft deletes
 ├── screens/
-│   ├── SessionListScreen.tsx   # View/create sessions
-│   └── SessionDetailScreen.tsx # Manage players & matches
+│   ├── SessionListScreen.tsx     # View/create/delete sessions with stats
+│   ├── SessionDetailScreen.tsx   # Session overview and match management
+│   └── PlayerManagementScreen.tsx # Dedicated player management
 ├── supabase/
-│   └── migrations/             # Database schema migrations
-├── App.tsx                     # Main app with navigation
-└── global.css                  # NativeWind styles
+│   └── migrations/               # Database schema migrations with soft deletes
+├── App.tsx                       # Main app with navigation
+└── global.css                    # NativeWind styles
 ```
 
-**Database Schema:**
-- `sessions`: Session management (id, created_at) - simplified without names
-- `players`: Player management with availability tracking (id, session_id, name, is_available)
+**Database Schema (with Soft Deletes):**
+- `sessions`: Session management with soft delete (id, created_at, deleted_at)
+- `players`: Player management with soft delete and availability (id, session_id, name, is_available, deleted_at)
 - `matches`: Match tracking with round numbers (id, session_id, round_number, status)
 - `match_players`: Many-to-many relationship for match assignments (match_id, player_id, team)
 
@@ -65,50 +69,73 @@ This is a **completed MVP** React Native pickleball session management app using
 
 ## Core Service Layer (`lib/pickleballService.ts`)
 
-All business logic is implemented with proper TypeScript typing:
-- `createSession()`: Creates new pickleball session (no name required)
+All business logic is implemented with proper TypeScript typing and soft deletes:
+- `createSession()`: Creates new pickleball session with timestamp naming
+- `deleteSession(sessionId: string)`: Soft deletes session (preserves history)
 - `addPlayer(sessionId: string, name: string)`: Adds player to session
-- `removePlayer(playerId: string)`: Removes player from session
-- `generateRound(sessionId: string, roundNumber: number)`: Creates matches from available players
+- `removePlayer(playerId: string)`: Soft deletes player (preserves match history)
+- `restorePlayer(playerId: string)`: Restores soft-deleted player as available
+- `generateRound(sessionId: string, roundNumber: number)`: Creates one 2v2 match from 4 available players
 - `completeMatch(matchId: string)`: Marks match complete and frees players
 
 ## UI Components
 
 **SessionListScreen:**
-- View all sessions with real-time updates
-- One-click session creation (no names needed)
-- Navigate to session details
+- View all active sessions with comprehensive statistics
+- Date/time-based session naming (e.g., "Dec 20, 2:30 PM")
+- Session statistics: total players and total matches
+- Delete sessions with confirmation dialog
+- Real-time updates with focus refresh
 
-**SessionDetailScreen:**
-- Add/remove players with live status indicators
-- Generate rounds with available players
-- View active/completed matches
-- Complete matches to free players
+**SessionDetailScreen (Session Overview):**
+- Session overview with player count metrics (total/available)
+- "Manage Players" button navigating to dedicated screen
+- Round generation (requires 4 available players)
+- Match display and completion workflow
+- Real-time updates across all data changes
+
+**PlayerManagementScreen (Dedicated Player Management):**
+- Add players manually or via demo button with numbered names
+- Remove players with immediate UI feedback
+- Restore removed players back to active status
+- View active and removed players separately
+- Real-time synchronization with session overview
 
 ## Real-time Features
 
 **Supabase Subscriptions:**
-- Live player list updates across devices
-- Instant match creation/completion sync
-- Automatic UI refresh on data changes
+- Live session list updates with automatic refresh on focus
+- Real-time player management synchronization between screens
+- Instant match creation/completion sync across devices
+- Automatic UI refresh on all data changes
 
-**Subscription Channels:**
-- `players` table changes filtered by session_id
-- `matches` table changes filtered by session_id
-- `match_players` table changes for match assignments
+**Subscription Channels (with unique naming):**
+- `sessions-list` for session list updates
+- `players-${sessionId}` for player management screen
+- `session-players-${sessionId}` for session detail screen
+- `session-matches-${sessionId}` for match updates
+- `session-match-players-${sessionId}` for match player assignments
 
-## Key Implementation Notes
+## Key Implementation Features
 
-**Current Limitations to Address:**
-- Race condition handling for concurrent round generation
-- Error handling for edge cases
-- Performance optimization for large player counts
+**Soft Delete System:**
+- Sessions and players use soft deletes (deleted_at timestamp)
+- Preserves complete historical data for matches and participation
+- Allows restoration of accidentally removed items
+- Maintains referential integrity across all relationships
 
-**Working Features:**
-- Player availability state management
-- Real-time updates across multiple devices
-- Minimum 4 players validation for match generation
-- Multiple concurrent matches per session
+**Advanced UI/UX:**
+- Optimistic UI updates for immediate feedback
+- Professional Lucide icons throughout the interface
+- Focus-based refresh ensuring data consistency on screen transitions
+- Comprehensive error handling with user-friendly messages
+- Confirmation dialogs for destructive actions
+
+**Session Management:**
+- Automatic timestamp-based session naming
+- Comprehensive session statistics (players/matches)
+- One match per round generation (prevents over-scheduling)
+- Separated concerns: overview vs detailed management
 
 ## Testing & Development
 

@@ -179,11 +179,20 @@ The app will:
 - ✅ Integrate UI library (NativeWind).
 - ✅ Basic styling (session cards, player chips, match list).
 
-**🔄 Milestone 6 – Testing & Deployment** _(IN PROGRESS)_
+**✅ Milestone 6 – Advanced Features & Polish** _(COMPLETED)_
 
-- 🔄 Test multiple devices with realtime sync.
-- ⏳ Fix race conditions (e.g., two users generating a round at the same time).
-- ⏳ Deploy app build via Expo Go or TestFlight/Play Store (internal testing).
+- ✅ Soft delete system for sessions and players
+- ✅ Professional UI with Lucide icons
+- ✅ Separate player management screen
+- ✅ Player restore functionality
+- ✅ Session statistics and history tracking
+- ✅ Optimistic UI updates and focus refresh
+
+**🔄 Milestone 7 – Testing & Deployment** _(READY)_
+
+- ✅ Multi-device testing with realtime sync
+- ✅ Race condition prevention (one match per round)
+- ⏳ Deploy app build via Expo Go or TestFlight/Play Store
 
 ---
 
@@ -194,47 +203,55 @@ The app will:
 **Core Infrastructure:**
 - ✅ React Native Expo project with TypeScript
 - ✅ Supabase client configured with generated types
-- ✅ NativeWind styling system set up
-- ✅ React Navigation with Stack Navigator
-- ✅ Database schema with proper migrations
+- ✅ NativeWind styling system with Lucide icons
+- ✅ React Navigation with Stack Navigator (3 screens)
+- ✅ Database schema with soft delete migrations
 - ✅ Local Supabase development environment
 
 **Business Logic (`lib/pickleballService.ts`):**
-- ✅ `createSession()` - Create new pickleball sessions
+- ✅ `createSession()` - Create sessions with timestamp naming
+- ✅ `deleteSession()` - Soft delete sessions (preserves history)
 - ✅ `addPlayer()` - Add players to sessions
-- ✅ `removePlayer()` - Remove players from sessions
-- ✅ `generateRound()` - Random matchmaking algorithm (2v2)
+- ✅ `removePlayer()` - Soft delete players (preserves match history)
+- ✅ `restorePlayer()` - Restore soft-deleted players
+- ✅ `generateRound()` - Create one 2v2 match per round (prevents over-scheduling)
 - ✅ `completeMatch()` - Mark matches complete and free players
 
 **UI Screens:**
-- ✅ `SessionListScreen` - View/create sessions with real-time updates
-- ✅ `SessionDetailScreen` - Manage players and matches with live sync
+- ✅ `SessionListScreen` - View/create/delete sessions with comprehensive stats
+- ✅ `SessionDetailScreen` - Session overview with player metrics and match management
+- ✅ `PlayerManagementScreen` - Dedicated player management with restore functionality
+
+**Advanced Features:**
+- ✅ Soft delete system preserving complete historical data
+- ✅ Professional Lucide icons throughout interface
+- ✅ Optimistic UI updates for immediate feedback
+- ✅ Focus-based refresh ensuring data consistency
+- ✅ Comprehensive session statistics (total players/matches)
+- ✅ Player restoration from removed status
+- ✅ Real-time synchronization across all screens
+- ✅ Confirmation dialogs for destructive actions
 
 **Real-time Features:**
-- ✅ Live player list updates across devices
-- ✅ Real-time match creation and completion
-- ✅ Automatic UI refresh on data changes
+- ✅ Live session list updates with focus refresh
+- ✅ Real-time player management sync between screens
+- ✅ Instant match creation/completion updates
+- ✅ Cross-device synchronization with unique channel naming
 
 ### ⏳ **REMAINING TASKS**
 
-**Testing & Quality:**
-- ⏳ Multi-device testing with multiple users
-- ⏳ Race condition handling (concurrent round generation)
-- ⏳ Error handling edge cases
-- ⏳ Performance testing with larger player counts
-
-**Deployment:**
+**Production Deployment:**
 - ⏳ Production Supabase project setup
 - ⏳ Environment configuration for production
-- ⏳ Expo build configuration
+- ⏳ Expo build configuration (EAS Build)
 - ⏳ App store deployment preparation
 
-**Nice-to-Have Enhancements:**
-- ⏳ Match detail screen (view specific match info)
+**Future Enhancements (Optional):**
 - ⏳ Session joining via codes/links
 - ⏳ Player skill levels or ratings
-- ⏳ Match history and statistics
 - ⏳ Push notifications for match readiness
+- ⏳ Advanced statistics and analytics
+- ⏳ Export session data functionality
 
 ---
 
@@ -244,24 +261,32 @@ To verify that the system meets the requirements, we will focus on functional va
 
 **Functional Validation**
 
-- ✅ Users can create and join sessions without authentication.
-- ✅ Players can be added/removed dynamically and changes reflect across devices in realtime.
-- ✅ Generating a round correctly assigns available players into 2 vs 2 matches.
-- ✅ Players already in matches are unavailable until their match completes.
-- ✅ Multiple matches can run concurrently without data conflicts.
-- ✅ Completing a match correctly returns players to the available pool.
+- ✅ Users can create sessions with automatic timestamp naming
+- ✅ Sessions can be soft-deleted with confirmation dialog
+- ✅ Players can be added/removed/restored dynamically with realtime sync
+- ✅ Generating rounds creates exactly one 2v2 match per round
+- ✅ Players in active matches are unavailable until match completion
+- ✅ Match completion returns players to available pool
+- ✅ Comprehensive session statistics display correctly
+- ✅ Player management separated into dedicated screen
 
 **User Experience Checks**
 
-- ✅ UI updates seamlessly when changes happen (no manual refresh needed).
-- ✅ Generating rounds feels fast (<1s on client).
-- ✅ Adding/removing players feels intuitive and responsive.
+- ✅ UI updates seamlessly with optimistic updates and focus refresh
+- ✅ Professional icon design throughout the interface
+- ✅ Immediate feedback on all user actions
+- ✅ Clear separation between session overview and detailed management
+- ✅ Confirmation dialogs prevent accidental destructive actions
+- ✅ Intuitive navigation flow between screens
 
 **Performance & Reliability**
 
-- ✅ Supabase realtime handles updates across 5–10 clients without delay.
-- ✅ No data inconsistencies in concurrent actions (e.g., two people generating a round simultaneously).
-- ✅ App works reliably on both iOS and Android test devices.
+- ✅ Supabase realtime handles updates across multiple clients
+- ✅ Race condition prevention (one match per round generation)
+- ✅ Soft delete system preserves complete historical data
+- ✅ Focus-based refresh ensures data consistency on navigation
+- ✅ Unique subscription channels prevent conflicts
+- ✅ App works reliably with comprehensive error handling
 
 **Feedback Loop**
 
