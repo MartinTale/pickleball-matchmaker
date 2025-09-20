@@ -33,19 +33,22 @@ export default function SessionDetailScreen() {
 
     // Subscribe to changes
     const playersSubscription = supabase
-      .channel('players')
+      .channel(`players-${sessionId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'players',
         filter: `session_id=eq.${sessionId}`
-      }, () => {
+      }, (payload) => {
+        console.log('Players change detected:', payload);
         fetchSessionData();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Players subscription status:', status);
+      });
 
     const matchesSubscription = supabase
-      .channel('matches')
+      .channel(`matches-${sessionId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -56,9 +59,21 @@ export default function SessionDetailScreen() {
       })
       .subscribe();
 
+    const matchPlayersSubscription = supabase
+      .channel(`match-players-${sessionId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'match_players'
+      }, () => {
+        fetchSessionData();
+      })
+      .subscribe();
+
     return () => {
       playersSubscription.unsubscribe();
       matchesSubscription.unsubscribe();
+      matchPlayersSubscription.unsubscribe();
     };
   }, [sessionId]);
 
@@ -111,6 +126,8 @@ export default function SessionDetailScreen() {
     try {
       await addPlayer(sessionId, newPlayerName.trim());
       setNewPlayerName('');
+      // Force refetch to ensure consistency
+      await fetchSessionData();
     } catch (error) {
       console.error('Error adding player:', error);
       Alert.alert('Error', 'Failed to add player');
@@ -119,10 +136,18 @@ export default function SessionDetailScreen() {
 
   const handleRemovePlayer = async (playerId: string) => {
     try {
+      // Optimistically remove from UI
+      setPlayers(prev => prev.filter(p => p.id !== playerId));
+
       await removePlayer(playerId);
+
+      // Force refetch to ensure consistency
+      await fetchSessionData();
     } catch (error) {
       console.error('Error removing player:', error);
       Alert.alert('Error', 'Failed to remove player');
+      // Refetch to restore correct state on error
+      await fetchSessionData();
     }
   };
 
@@ -143,6 +168,8 @@ export default function SessionDetailScreen() {
 
     try {
       await addPlayer(sessionId, demoPlayerName);
+      // Force refetch to ensure consistency
+      await fetchSessionData();
     } catch (error) {
       console.error('Error adding demo player:', error);
       Alert.alert('Error', 'Failed to add demo player');
