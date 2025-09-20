@@ -100,56 +100,54 @@ export async function generateRound(sessionId: string, roundNumber: number): Pro
     throw new Error("Not enough players to start a match. Need at least 4 players.");
   }
 
-  // Shuffle players randomly
+  // Shuffle players randomly and take only first 4 for one match
   const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
   const createdMatches: MatchWithPlayers[] = [];
 
-  // Create matches in groups of 4
-  for (let i = 0; i + 3 < shuffledPlayers.length; i += 4) {
-    const group = shuffledPlayers.slice(i, i + 4);
+  // Create only one match per round using first 4 available players
+  const group = shuffledPlayers.slice(0, 4);
 
-    // Create match
-    const { data: match, error: matchError } = await supabase
-      .from("matches")
-      .insert({
-        session_id: sessionId,
-        round_number: roundNumber,
-        status: "active"
-      })
-      .select()
-      .single();
+  // Create match
+  const { data: match, error: matchError } = await supabase
+    .from("matches")
+    .insert({
+      session_id: sessionId,
+      round_number: roundNumber,
+      status: "active"
+    })
+    .select()
+    .single();
 
-    if (matchError) throw matchError;
+  if (matchError) throw matchError;
 
-    // Create match player assignments
-    const matchPlayerInserts = [
-      { match_id: match.id, player_id: group[0].id, team: 1 },
-      { match_id: match.id, player_id: group[1].id, team: 1 },
-      { match_id: match.id, player_id: group[2].id, team: 2 },
-      { match_id: match.id, player_id: group[3].id, team: 2 },
-    ];
+  // Create match player assignments
+  const matchPlayerInserts = [
+    { match_id: match.id, player_id: group[0].id, team: 1 },
+    { match_id: match.id, player_id: group[1].id, team: 1 },
+    { match_id: match.id, player_id: group[2].id, team: 2 },
+    { match_id: match.id, player_id: group[3].id, team: 2 },
+  ];
 
-    const { data: matchPlayers, error: mpError } = await supabase
-      .from("match_players")
-      .insert(matchPlayerInserts)
-      .select();
+  const { data: matchPlayers, error: mpError } = await supabase
+    .from("match_players")
+    .insert(matchPlayerInserts)
+    .select();
 
-    if (mpError) throw mpError;
+  if (mpError) throw mpError;
 
-    // Mark players as unavailable
-    const playerIds = group.map(p => p.id);
-    const { error: updateError } = await supabase
-      .from("players")
-      .update({ is_available: false })
-      .in("id", playerIds);
+  // Mark players as unavailable
+  const playerIds = group.map(p => p.id);
+  const { error: updateError } = await supabase
+    .from("players")
+    .update({ is_available: false })
+    .in("id", playerIds);
 
-    if (updateError) throw updateError;
+  if (updateError) throw updateError;
 
-    createdMatches.push({
-      match,
-      players: matchPlayers || []
-    });
-  }
+  createdMatches.push({
+    match,
+    players: matchPlayers || []
+  });
 
   return createdMatches;
 }
