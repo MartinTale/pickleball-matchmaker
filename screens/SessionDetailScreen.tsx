@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, FlatList, TouchableOpacity, TextInput, Alert, ScrollView } from "react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
+import { Trash2 } from "lucide-react-native";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
 import { addPlayer, removePlayer, generateRound, completeMatch } from "../lib/pickleballService";
@@ -260,10 +261,10 @@ export default function SessionDetailScreen() {
 				<Text className='text-gray-800 font-medium'>{item.name}</Text>
 			</View>
 			<TouchableOpacity
-				className='bg-red-500 px-3 py-1 rounded'
+				className='bg-red-500 p-1 rounded'
 				onPress={() => handleRemovePlayer(item.id)}
 			>
-				<Text className='text-white text-sm'>Remove</Text>
+				<Trash2 size={16} color='white' />
 			</TouchableOpacity>
 		</View>
 	);

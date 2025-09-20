@@ -185,13 +185,13 @@ export default function SessionListScreen() {
 				<View className='flex-row justify-between items-start mb-2'>
 					<Text className='text-lg font-semibold text-gray-800 flex-1'>{sessionName}</Text>
 					<TouchableOpacity
-						className='bg-red-500 p-2 rounded-full'
+						className='bg-red-500 p-1 rounded'
 						onPress={(e) => {
 							e.stopPropagation();
 							handleDeleteSession(item.id, sessionName);
 						}}
 					>
-						<Trash2 size={16} color="white" />
+						<Trash2 size={16} color='white' />
 					</TouchableOpacity>
 				</View>
 				<View className='flex-row justify-between'>
