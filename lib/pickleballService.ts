@@ -23,6 +23,15 @@ export async function createSession(): Promise<Session> {
   return data;
 }
 
+export async function deleteSession(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from("sessions")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", sessionId);
+
+  if (error) throw error;
+}
+
 export async function addPlayer(sessionId: string, name: string): Promise<Player> {
   const { data, error } = await supabase
     .from("players")

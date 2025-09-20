@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
+import { Trash2 } from "lucide-react-native";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
-import { createSession } from "../lib/pickleballService";
+import { createSession, deleteSession } from "../lib/pickleballService";
 import { Database } from "../lib/database.types";
 
 type Session = Database["public"]["Tables"]["sessions"]["Row"];
@@ -14,7 +15,6 @@ interface SessionWithStats extends Session {
 	playerCount: number;
 	removedPlayerCount: number;
 	matchCount: number;
-	dailyIndex: number;
 }
 
 export default function SessionListScreen() {
@@ -27,20 +27,30 @@ export default function SessionListScreen() {
 
 		// Subscribe to session changes
 		const subscription = supabase
-			.channel("sessions")
-			.on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, () => {
+			.channel("sessions-list")
+			.on("postgres_changes", { event: "*", schema: "public", table: "sessions" }, (payload) => {
+				console.log("Session change detected:", payload);
 				fetchSessions();
 			})
-			.subscribe();
+			.subscribe((status) => {
+				console.log("Sessions subscription status:", status);
+			});
 
 		return () => {
 			subscription.unsubscribe();
 		};
 	}, []);
 
+	// Refetch sessions when screen comes into focus
+	useFocusEffect(
+		React.useCallback(() => {
+			fetchSessions();
+		}, [])
+	);
+
 	const fetchSessions = async () => {
 		try {
-			// Fetch sessions with player and match counts
+			// Fetch sessions with player and match counts (excluding soft-deleted)
 			const { data: sessionsData, error } = await supabase
 				.from("sessions")
 				.select(
@@ -50,29 +60,12 @@ export default function SessionListScreen() {
 					matches:matches(count)
 				`
 				)
+				.is("deleted_at", null)
 				.order("created_at", { ascending: false });
 
 			if (error) throw error;
 
-			// Sort sessions by creation time for proper daily indexing
-			const sortedSessions = [...(sessionsData || [])].sort(
-				(a, b) => new Date(a.created_at || "").getTime() - new Date(b.created_at || "").getTime()
-			);
-
-			// Calculate daily indices
-			const dailyCounters: { [date: string]: number } = {};
-			const sessionIndices: { [sessionId: string]: number } = {};
-
-			for (const session of sortedSessions) {
-				const createdDate = new Date(session.created_at || "").toDateString();
-				if (!dailyCounters[createdDate]) {
-					dailyCounters[createdDate] = 0;
-				}
-				dailyCounters[createdDate]++;
-				sessionIndices[session.id] = dailyCounters[createdDate];
-			}
-
-			// Process sessions with statistics (back to descending order)
+			// Process sessions with statistics
 			const sessionsWithStats: SessionWithStats[] = [];
 
 			for (const session of sessionsData || []) {
@@ -107,7 +100,6 @@ export default function SessionListScreen() {
 					playerCount: playerData?.length || 0,
 					removedPlayerCount: removedPlayerData?.length || 0,
 					matchCount: matchData?.length || 0,
-					dailyIndex: sessionIndices[session.id],
 				});
 			}
 
@@ -130,13 +122,48 @@ export default function SessionListScreen() {
 		}
 	};
 
+	const handleDeleteSession = async (sessionId: string, sessionName: string) => {
+		Alert.alert(
+			"Delete Session",
+			`Are you sure you want to delete "${sessionName}"? This action cannot be undone.`,
+			[
+				{
+					text: "Cancel",
+					style: "cancel",
+				},
+				{
+					text: "Delete",
+					style: "destructive",
+					onPress: async () => {
+						try {
+							// Optimistically remove from UI
+							setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+
+							await deleteSession(sessionId);
+
+							// Force refetch to ensure consistency
+							await fetchSessions();
+						} catch (error) {
+							console.error("Error deleting session:", error);
+							Alert.alert("Error", "Failed to delete session");
+							// Refetch to restore correct state on error
+							await fetchSessions();
+						}
+					},
+				},
+			]
+		);
+	};
+
 	const renderSession = ({ item }: { item: SessionWithStats }) => {
 		const createdDate = new Date(item.created_at || "");
-		const formattedDate = createdDate.toLocaleDateString("en-US", {
+		const sessionName = createdDate.toLocaleDateString("en-US", {
 			month: "short",
 			day: "numeric",
+			hour: "numeric",
+			minute: "2-digit",
+			hour12: true,
 		});
-		const sessionName = `${formattedDate}${item.dailyIndex > 1 ? ` (#${item.dailyIndex})` : ""}`;
 
 		return (
 			<TouchableOpacity
@@ -145,13 +172,15 @@ export default function SessionListScreen() {
 			>
 				<View className='flex-row justify-between items-start mb-2'>
 					<Text className='text-lg font-semibold text-gray-800 flex-1'>{sessionName}</Text>
-					<Text className='text-xs text-gray-400'>
-						{createdDate.toLocaleTimeString("en-US", {
-							hour: "numeric",
-							minute: "2-digit",
-							hour12: true,
-						})}
-					</Text>
+					<TouchableOpacity
+						className='bg-red-500 p-2 rounded-full'
+						onPress={(e) => {
+							e.stopPropagation();
+							handleDeleteSession(item.id, sessionName);
+						}}
+					>
+						<Trash2 size={16} color="white" />
+					</TouchableOpacity>
 				</View>
 				<View className='flex-row justify-between'>
 					<View className='flex-row items-center flex-wrap'>

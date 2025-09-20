@@ -140,14 +140,17 @@ export type Database = {
       sessions: {
         Row: {
           created_at: string | null
+          deleted_at: string | null
           id: string
         }
         Insert: {
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
         }
         Update: {
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
         }
         Relationships: []
