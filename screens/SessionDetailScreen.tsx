@@ -126,6 +126,29 @@ export default function SessionDetailScreen() {
     }
   };
 
+  const handleAddDemoPlayer = async () => {
+    const baseNames = [
+      'Alex Chen', 'Sam Rodriguez', 'Jordan Smith', 'Taylor Johnson', 'Morgan Davis',
+      'Casey Brown', 'Riley Wilson', 'Cameron Lee', 'Avery Martinez', 'Drew Thompson',
+      'Blake Anderson', 'Parker Garcia', 'Quinn Miller', 'Sage Williams', 'Dakota Jones'
+    ];
+
+    // Find the next available demo player number
+    const existingDemoPlayers = players.filter(p => p.name.match(/^\d+\.\s/));
+    const existingNumbers = existingDemoPlayers.map(p => parseInt(p.name.split('.')[0]));
+    const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+
+    const randomBaseName = baseNames[Math.floor(Math.random() * baseNames.length)];
+    const demoPlayerName = `${nextNumber}. ${randomBaseName}`;
+
+    try {
+      await addPlayer(sessionId, demoPlayerName);
+    } catch (error) {
+      console.error('Error adding demo player:', error);
+      Alert.alert('Error', 'Failed to add demo player');
+    }
+  };
+
   const handleGenerateRound = async () => {
     const availablePlayers = players.filter(p => p.is_available);
     if (availablePlayers.length < 4) {
@@ -243,6 +266,12 @@ export default function SessionDetailScreen() {
             onPress={handleAddPlayer}
           >
             <Text className="text-white font-semibold">Add</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="bg-purple-500 px-4 py-2 rounded-lg justify-center"
+            onPress={handleAddDemoPlayer}
+          >
+            <Text className="text-white font-semibold">Demo</Text>
           </TouchableOpacity>
         </View>
       </View>
