@@ -6,10 +6,12 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import SessionListScreen from "./screens/SessionListScreen";
 import SessionDetailScreen from "./screens/SessionDetailScreen";
+import PlayerManagementScreen from "./screens/PlayerManagementScreen";
 
 export type RootStackParamList = {
 	SessionList: undefined;
 	SessionDetail: { sessionId: string };
+	PlayerManagement: { sessionId: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -28,6 +30,11 @@ export default function App() {
 						name='SessionDetail'
 						component={SessionDetailScreen}
 						options={{ title: "Session Detail" }}
+					/>
+					<Stack.Screen
+						name='PlayerManagement'
+						component={PlayerManagementScreen}
+						options={{ title: "Manage Players" }}
 					/>
 				</Stack.Navigator>
 				<StatusBar style='auto' />

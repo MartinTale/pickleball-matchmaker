@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, TextInput, Alert, ScrollView } from "react-native";
-import { useRoute, RouteProp } from "@react-navigation/native";
-import { Trash2 } from "lucide-react-native";
+import { View, Text, FlatList, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { useRoute, RouteProp, useNavigation, useFocusEffect } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
-import { addPlayer, removePlayer, generateRound, completeMatch } from "../lib/pickleballService";
+import { generateRound, completeMatch } from "../lib/pickleballService";
 import { Database } from "../lib/database.types";
 
 type Player = Database["public"]["Tables"]["players"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 type MatchPlayer = Database["public"]["Tables"]["match_players"]["Row"];
 type RouteProps = RouteProp<RootStackParamList, "SessionDetail">;
+type NavigationProp = StackNavigationProp<RootStackParamList, "SessionDetail">;
 
 interface MatchWithDetails extends Match {
 	match_players: (MatchPlayer & {
@@ -20,21 +21,20 @@ interface MatchWithDetails extends Match {
 
 export default function SessionDetailScreen() {
 	const route = useRoute<RouteProps>();
+	const navigation = useNavigation<NavigationProp>();
 	const { sessionId } = route.params;
 
 	const [players, setPlayers] = useState<Player[]>([]);
-	const [deletedPlayers, setDeletedPlayers] = useState<Player[]>([]);
 	const [matches, setMatches] = useState<MatchWithDetails[]>([]);
-	const [newPlayerName, setNewPlayerName] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [currentRound, setCurrentRound] = useState(1);
 
 	useEffect(() => {
 		fetchSessionData();
 
-		// Subscribe to changes
+		// Subscribe to changes for players, matches and match players
 		const playersSubscription = supabase
-			.channel(`players-${sessionId}`)
+			.channel(`session-players-${sessionId}`)
 			.on(
 				"postgres_changes",
 				{
@@ -43,17 +43,14 @@ export default function SessionDetailScreen() {
 					table: "players",
 					filter: `session_id=eq.${sessionId}`,
 				},
-				(payload) => {
-					console.log("Players change detected:", payload);
+				() => {
 					fetchSessionData();
 				}
 			)
-			.subscribe((status) => {
-				console.log("Players subscription status:", status);
-			});
+			.subscribe();
 
 		const matchesSubscription = supabase
-			.channel(`matches-${sessionId}`)
+			.channel(`session-matches-${sessionId}`)
 			.on(
 				"postgres_changes",
 				{
@@ -69,7 +66,7 @@ export default function SessionDetailScreen() {
 			.subscribe();
 
 		const matchPlayersSubscription = supabase
-			.channel(`match-players-${sessionId}`)
+			.channel(`session-match-players-${sessionId}`)
 			.on(
 				"postgres_changes",
 				{
@@ -90,9 +87,16 @@ export default function SessionDetailScreen() {
 		};
 	}, [sessionId]);
 
+	// Refetch session data when screen comes into focus
+	useFocusEffect(
+		React.useCallback(() => {
+			fetchSessionData();
+		}, [])
+	);
+
 	const fetchSessionData = async () => {
 		try {
-			// Fetch active players (excluding soft-deleted)
+			// Fetch active players (excluding soft-deleted) for counts only
 			const { data: playersData, error: playersError } = await supabase
 				.from("players")
 				.select("*")
@@ -102,35 +106,22 @@ export default function SessionDetailScreen() {
 
 			if (playersError) throw playersError;
 
-			// Fetch soft-deleted players
-			const { data: deletedPlayersData, error: deletedPlayersError } = await supabase
-				.from("players")
-				.select("*")
-				.eq("session_id", sessionId)
-				.not("deleted_at", "is", null)
-				.order("deleted_at", { ascending: false });
-
-			if (deletedPlayersError) throw deletedPlayersError;
-
 			// Fetch matches with players
 			const { data: matchesData, error: matchesError } = await supabase
 				.from("matches")
-				.select(
-					`
+				.select(`
           *,
           match_players(
             *,
             players(id, name)
           )
-        `
-				)
+        `)
 				.eq("session_id", sessionId)
 				.order("created_at", { ascending: false });
 
 			if (matchesError) throw matchesError;
 
 			setPlayers(playersData || []);
-			setDeletedPlayers(deletedPlayersData || []);
 			setMatches((matchesData as MatchWithDetails[]) || []);
 
 			// Calculate next round number
@@ -141,88 +132,6 @@ export default function SessionDetailScreen() {
 			Alert.alert("Error", "Failed to fetch session data");
 		} finally {
 			setLoading(false);
-		}
-	};
-
-	const handleAddPlayer = async () => {
-		if (!newPlayerName.trim()) {
-			Alert.alert("Error", "Please enter a player name");
-			return;
-		}
-
-		try {
-			await addPlayer(sessionId, newPlayerName.trim());
-			setNewPlayerName("");
-			// Force refetch to ensure consistency
-			await fetchSessionData();
-		} catch (error) {
-			console.error("Error adding player:", error);
-			Alert.alert("Error", "Failed to add player");
-		}
-	};
-
-	const handleRemovePlayer = async (playerId: string) => {
-		try {
-			// Find the player being removed for optimistic update
-			const playerToRemove = players.find((p) => p.id === playerId);
-
-			// Optimistically remove from active players
-			setPlayers((prev) => prev.filter((p) => p.id !== playerId));
-
-			// Optimistically add to deleted players (if we found the player)
-			if (playerToRemove) {
-				setDeletedPlayers((prev) => [
-					{ ...playerToRemove, deleted_at: new Date().toISOString() },
-					...prev,
-				]);
-			}
-
-			await removePlayer(playerId);
-
-			// Force refetch to ensure consistency
-			await fetchSessionData();
-		} catch (error) {
-			console.error("Error removing player:", error);
-			Alert.alert("Error", "Failed to remove player");
-			// Refetch to restore correct state on error
-			await fetchSessionData();
-		}
-	};
-
-	const handleAddDemoPlayer = async () => {
-		const baseNames = [
-			"Alex Chen",
-			"Sam Rodriguez",
-			"Jordan Smith",
-			"Taylor Johnson",
-			"Morgan Davis",
-			"Casey Brown",
-			"Riley Wilson",
-			"Cameron Lee",
-			"Avery Martinez",
-			"Drew Thompson",
-			"Blake Anderson",
-			"Parker Garcia",
-			"Quinn Miller",
-			"Sage Williams",
-			"Dakota Jones",
-		];
-
-		// Find the next available demo player number
-		const existingDemoPlayers = players.filter((p) => p.name.match(/^\d+\.\s/));
-		const existingNumbers = existingDemoPlayers.map((p) => parseInt(p.name.split(".")[0]));
-		const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
-
-		const randomBaseName = baseNames[Math.floor(Math.random() * baseNames.length)];
-		const demoPlayerName = `${nextNumber}. ${randomBaseName}`;
-
-		try {
-			await addPlayer(sessionId, demoPlayerName);
-			// Force refetch to ensure consistency
-			await fetchSessionData();
-		} catch (error) {
-			console.error("Error adding demo player:", error);
-			Alert.alert("Error", "Failed to add demo player");
 		}
 	};
 
@@ -248,50 +157,6 @@ export default function SessionDetailScreen() {
 			console.error("Error completing match:", error);
 			Alert.alert("Error", "Failed to complete match");
 		}
-	};
-
-	const renderPlayer = ({ item }: { item: Player }) => (
-		<View className='flex-row items-center justify-between bg-white p-3 m-1 rounded-lg border border-gray-200'>
-			<View className='flex-row items-center'>
-				<View
-					className={`w-3 h-3 rounded-full mr-3 ${
-						item.is_available ? "bg-green-500" : "bg-red-500"
-					}`}
-				/>
-				<Text className='text-gray-800 font-medium'>{item.name}</Text>
-			</View>
-			<TouchableOpacity
-				className='bg-red-500 p-1 rounded'
-				onPress={() => handleRemovePlayer(item.id)}
-			>
-				<Trash2 size={16} color='white' />
-			</TouchableOpacity>
-		</View>
-	);
-
-	const renderDeletedPlayer = ({ item }: { item: Player }) => {
-		const deletedDate = new Date(item.deleted_at || "");
-		return (
-			<View className='flex-row items-center justify-between bg-gray-50 p-3 m-1 rounded-lg border border-gray-200'>
-				<View className='flex-row items-center flex-1'>
-					<View className='w-3 h-3 rounded-full mr-3 bg-gray-400' />
-					<View className='flex-1'>
-						<Text className='text-gray-600 font-medium'>{item.name}</Text>
-						<Text className='text-xs text-gray-400 mt-1'>
-							Removed {deletedDate.toLocaleDateString()} at{" "}
-							{deletedDate.toLocaleTimeString("en-US", {
-								hour: "numeric",
-								minute: "2-digit",
-								hour12: true,
-							})}
-						</Text>
-					</View>
-				</View>
-				<View className='bg-gray-300 px-3 py-1 rounded'>
-					<Text className='text-gray-600 text-sm'>Removed</Text>
-				</View>
-			</View>
-		);
 	};
 
 	const renderMatch = ({ item }: { item: MatchWithDetails }) => {
@@ -362,78 +227,50 @@ export default function SessionDetailScreen() {
 	const availablePlayers = players.filter((p) => p.is_available);
 
 	return (
-		<ScrollView className='flex-1'>
-			{/* Add Player Section */}
+		<ScrollView className='flex-1 bg-gray-50'>
+			{/* Session Overview */}
 			<View className='p-4 bg-white border-b border-gray-200'>
-				<Text className='text-lg font-bold text-gray-800 mb-3'>Add Player</Text>
-				<View className='flex-row gap-2'>
-					<TextInput
-						className='flex-1 border border-gray-300 rounded-lg px-3 py-2 bg-white'
-						placeholder='Enter player name'
-						value={newPlayerName}
-						onChangeText={setNewPlayerName}
-						onSubmitEditing={handleAddPlayer}
-					/>
-					<TouchableOpacity
-						className='bg-green-500 px-4 py-2 rounded-lg justify-center'
-						onPress={handleAddPlayer}
-					>
-						<Text className='text-white font-semibold'>Add</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						className='bg-purple-500 px-4 py-2 rounded-lg justify-center'
-						onPress={handleAddDemoPlayer}
-					>
-						<Text className='text-white font-semibold'>Demo</Text>
-					</TouchableOpacity>
+				<Text className='text-xl font-bold text-gray-800 mb-4'>Session Overview</Text>
+
+				<View className='flex-row justify-between mb-4'>
+					<View className='bg-blue-100 px-4 py-3 rounded-lg flex-1 mr-2'>
+						<Text className='text-blue-700 text-lg font-bold'>{players.length}</Text>
+						<Text className='text-blue-600 text-sm'>Total Players</Text>
+					</View>
+					<View className='bg-green-100 px-4 py-3 rounded-lg flex-1 ml-2'>
+						<Text className='text-green-700 text-lg font-bold'>{availablePlayers.length}</Text>
+						<Text className='text-green-600 text-sm'>Available</Text>
+					</View>
 				</View>
+
+				<TouchableOpacity
+					className='bg-purple-500 px-6 py-3 rounded-lg'
+					onPress={() => navigation.navigate("PlayerManagement", { sessionId })}
+				>
+					<Text className='text-white font-semibold text-center text-lg'>Manage Players</Text>
+				</TouchableOpacity>
 			</View>
 
-			{/* Players List */}
-			<View className='p-4'>
-				<View className='flex-row justify-between items-center mb-3'>
-					<Text className='text-lg font-bold text-gray-800'>
-						Players ({players.length}) - Available: {availablePlayers.length}
+			{/* Generate Round Section */}
+			<View className='p-4 bg-white border-b border-gray-200 mt-2'>
+				<Text className='text-lg font-bold text-gray-800 mb-3'>Round Management</Text>
+				<TouchableOpacity
+					className={`px-6 py-3 rounded-lg ${
+						availablePlayers.length >= 4 ? "bg-blue-500" : "bg-gray-400"
+					}`}
+					onPress={handleGenerateRound}
+					disabled={availablePlayers.length < 4}
+				>
+					<Text className='text-white font-semibold text-center text-lg'>
+						Generate Round {currentRound}
 					</Text>
-					<TouchableOpacity
-						className={`px-4 py-2 rounded-lg ${
-							availablePlayers.length >= 4 ? "bg-blue-500" : "bg-gray-400"
-						}`}
-						onPress={handleGenerateRound}
-						disabled={availablePlayers.length < 4}
-					>
-						<Text className='text-white font-semibold'>Generate Round {currentRound}</Text>
-					</TouchableOpacity>
-				</View>
-
-				{players.length === 0 ? (
-					<Text className='text-gray-500 text-center py-4'>
-						No players yet. Add some players above!
+				</TouchableOpacity>
+				{availablePlayers.length < 4 && (
+					<Text className='text-gray-500 text-center text-sm mt-2'>
+						Need at least 4 available players to generate matches
 					</Text>
-				) : (
-					<FlatList
-						data={players}
-						keyExtractor={(item) => item.id}
-						renderItem={renderPlayer}
-						scrollEnabled={false}
-					/>
 				)}
 			</View>
-
-			{/* Removed Players Section */}
-			{deletedPlayers.length > 0 && (
-				<View className='p-4'>
-					<Text className='text-lg font-bold text-gray-800 mb-3'>
-						Removed Players ({deletedPlayers.length})
-					</Text>
-					<FlatList
-						data={deletedPlayers}
-						keyExtractor={(item) => item.id}
-						renderItem={renderDeletedPlayer}
-						scrollEnabled={false}
-					/>
-				</View>
-			)}
 
 			{/* Matches Section */}
 			{matches.length > 0 && (
