@@ -12,9 +12,10 @@ type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type NavigationProp = StackNavigationProp<RootStackParamList, "SessionList">;
 
 interface SessionWithStats extends Session {
-	playerCount: number;
-	removedPlayerCount: number;
-	matchCount: number;
+	activePlayerCount: number;
+	inactivePlayerCount: number;
+	activeMatchCount: number;
+	completedMatchCount: number;
 }
 
 export default function SessionListScreen() {
@@ -69,37 +70,48 @@ export default function SessionListScreen() {
 			const sessionsWithStats: SessionWithStats[] = [];
 
 			for (const session of sessionsData || []) {
-				// Count non-deleted players
-				const { data: playerData, error: playerError } = await supabase
+				// Count active players (non-deleted)
+				const { data: activePlayerData, error: activePlayerError } = await supabase
 					.from("players")
 					.select("id", { count: "exact" })
 					.eq("session_id", session.id)
 					.is("deleted_at", null);
 
-				if (playerError) throw playerError;
+				if (activePlayerError) throw activePlayerError;
 
-				// Count removed players
-				const { data: removedPlayerData, error: removedPlayerError } = await supabase
+				// Count inactive players (soft-deleted)
+				const { data: inactivePlayerData, error: inactivePlayerError } = await supabase
 					.from("players")
 					.select("id", { count: "exact" })
 					.eq("session_id", session.id)
 					.not("deleted_at", "is", null);
 
-				if (removedPlayerError) throw removedPlayerError;
+				if (inactivePlayerError) throw inactivePlayerError;
 
-				// Count matches
-				const { data: matchData, error: matchError } = await supabase
+				// Count active matches
+				const { data: activeMatchData, error: activeMatchError } = await supabase
 					.from("matches")
 					.select("id", { count: "exact" })
-					.eq("session_id", session.id);
+					.eq("session_id", session.id)
+					.eq("status", "active");
 
-				if (matchError) throw matchError;
+				if (activeMatchError) throw activeMatchError;
+
+				// Count completed matches
+				const { data: completedMatchData, error: completedMatchError } = await supabase
+					.from("matches")
+					.select("id", { count: "exact" })
+					.eq("session_id", session.id)
+					.eq("status", "completed");
+
+				if (completedMatchError) throw completedMatchError;
 
 				sessionsWithStats.push({
 					...session,
-					playerCount: playerData?.length || 0,
-					removedPlayerCount: removedPlayerData?.length || 0,
-					matchCount: matchData?.length || 0,
+					activePlayerCount: activePlayerData?.length || 0,
+					inactivePlayerCount: inactivePlayerData?.length || 0,
+					activeMatchCount: activeMatchData?.length || 0,
+					completedMatchCount: completedMatchData?.length || 0,
 				});
 			}
 
@@ -185,17 +197,14 @@ export default function SessionListScreen() {
 				<View className='flex-row justify-between'>
 					<View className='flex-row items-center flex-wrap'>
 						<View className='bg-blue-100 px-2 py-1 rounded mr-2 mb-1'>
-							<Text className='text-blue-700 text-xs font-medium'>{item.playerCount} Players</Text>
+							<Text className='text-blue-700 text-xs font-medium'>
+								{item.activePlayerCount + item.inactivePlayerCount} Players
+							</Text>
 						</View>
-						{item.removedPlayerCount > 0 && (
-							<View className='bg-gray-100 px-2 py-1 rounded mr-2 mb-1'>
-								<Text className='text-gray-600 text-xs font-medium'>
-									{item.removedPlayerCount} Removed
-								</Text>
-							</View>
-						)}
 						<View className='bg-green-100 px-2 py-1 rounded mb-1'>
-							<Text className='text-green-700 text-xs font-medium'>{item.matchCount} Matches</Text>
+							<Text className='text-green-700 text-xs font-medium'>
+								{item.activeMatchCount + item.completedMatchCount} Matches
+							</Text>
 						</View>
 					</View>
 				</View>
