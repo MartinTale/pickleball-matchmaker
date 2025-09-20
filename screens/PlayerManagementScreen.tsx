@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, FlatList, TouchableOpacity, TextInput, Alert, ScrollView } from "react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { Trash2 } from "lucide-react-native";
+import { Trash2, RotateCcw } from "lucide-react-native";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
-import { addPlayer, removePlayer } from "../lib/pickleballService";
+import { addPlayer, removePlayer, restorePlayer } from "../lib/pickleballService";
 import { Database } from "../lib/database.types";
 
 type Player = Database["public"]["Tables"]["players"]["Row"];
@@ -161,6 +161,34 @@ export default function PlayerManagementScreen() {
 		}
 	};
 
+	const handleRestorePlayer = async (playerId: string) => {
+		try {
+			// Find the player being restored for optimistic update
+			const playerToRestore = deletedPlayers.find((p) => p.id === playerId);
+
+			// Optimistically remove from deleted players
+			setDeletedPlayers((prev) => prev.filter((p) => p.id !== playerId));
+
+			// Optimistically add to active players (if we found the player)
+			if (playerToRestore) {
+				setPlayers((prev) => [
+					...prev,
+					{ ...playerToRestore, deleted_at: null, is_available: true }
+				]);
+			}
+
+			await restorePlayer(playerId);
+
+			// Force refetch to ensure consistency
+			await fetchPlayers();
+		} catch (error) {
+			console.error("Error restoring player:", error);
+			Alert.alert("Error", "Failed to restore player");
+			// Refetch to restore correct state on error
+			await fetchPlayers();
+		}
+	};
+
 	const renderPlayer = ({ item }: { item: Player }) => (
 		<View className='flex-row items-center justify-between bg-white p-3 m-1 rounded-lg border border-gray-200'>
 			<View className='flex-row items-center'>
@@ -198,9 +226,12 @@ export default function PlayerManagementScreen() {
 						</Text>
 					</View>
 				</View>
-				<View className='bg-gray-300 px-3 py-1 rounded'>
-					<Text className='text-gray-600 text-sm'>Removed</Text>
-				</View>
+				<TouchableOpacity
+					className='bg-green-500 p-1 rounded'
+					onPress={() => handleRestorePlayer(item.id)}
+				>
+					<RotateCcw size={16} color='white' />
+				</TouchableOpacity>
 			</View>
 		);
 	};

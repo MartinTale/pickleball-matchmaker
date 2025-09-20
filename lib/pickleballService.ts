@@ -52,6 +52,18 @@ export async function removePlayer(playerId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function restorePlayer(playerId: string): Promise<void> {
+  const { error } = await supabase
+    .from("players")
+    .update({
+      deleted_at: null,
+      is_available: true // Restore as available player
+    })
+    .eq("id", playerId);
+
+  if (error) throw error;
+}
+
 export async function completeMatch(matchId: string): Promise<void> {
   // Update match status
   const { error: matchError } = await supabase
