@@ -29,12 +29,18 @@ export default function App() {
 					<Stack.Screen
 						name='SessionDetail'
 						component={SessionDetailScreen}
-						options={{ title: "Session Detail" }}
+						options={{
+							title: "Session Detail",
+							headerBackTitle: "Back"
+						}}
 					/>
 					<Stack.Screen
 						name='PlayerManagement'
 						component={PlayerManagementScreen}
-						options={{ title: "Manage Players" }}
+						options={{
+							title: "Manage Players",
+							headerBackTitle: "Back"
+						}}
 					/>
 				</Stack.Navigator>
 				<StatusBar style='auto' />
