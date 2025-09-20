@@ -195,9 +195,9 @@ export default function SessionDetailScreen() {
 					<Text className='text-gray-400 font-bold text-lg self-center'>VS</Text>
 
 					<View className='flex-1 ml-2'>
-						<Text className='font-medium text-red-600 mb-1'>Team 2</Text>
+						<Text className='font-medium text-red-600 mb-1 text-right'>Team 2</Text>
 						{team2.map((mp) => (
-							<Text key={mp.id} className='text-gray-700'>
+							<Text key={mp.id} className='text-gray-700 text-right'>
 								{mp.players?.name || "Unknown"}
 							</Text>
 						))}
