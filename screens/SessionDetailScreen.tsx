@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../App';
 import { supabase } from '../lib/supabaseClient';
@@ -224,7 +225,8 @@ export default function SessionDetailScreen() {
   const availablePlayers = players.filter(p => p.is_available);
 
   return (
-    <ScrollView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <ScrollView className="flex-1">
       {/* Add Player Section */}
       <View className="p-4 bg-white border-b border-gray-200">
         <Text className="text-lg font-bold text-gray-800 mb-3">Add Player</Text>
@@ -286,6 +288,7 @@ export default function SessionDetailScreen() {
           />
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

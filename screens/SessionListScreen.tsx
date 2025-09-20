@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../App';
@@ -79,7 +80,7 @@ export default function SessionListScreen() {
   }
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50">
       <View className="p-4 bg-white border-b border-gray-200">
         <TouchableOpacity
           className="bg-blue-500 px-6 py-3 rounded-lg"
@@ -106,6 +107,6 @@ export default function SessionListScreen() {
           />
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
