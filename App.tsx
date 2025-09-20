@@ -6,7 +6,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import SessionListScreen from "./screens/SessionListScreen";
 import SessionDetailScreen from "./screens/SessionDetailScreen";
-import { Database } from "./lib/database.types";
 
 export type RootStackParamList = {
 	SessionList: undefined;

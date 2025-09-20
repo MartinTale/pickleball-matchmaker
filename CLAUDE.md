@@ -13,7 +13,7 @@ This is a **completed MVP** React Native pickleball session management app using
 - Player addition/removal with real-time sync
 - Random matchmaking algorithm (2v2)
 - Match completion workflow
-- Professional UI with NativeWind styling
+- Professional UI with NativeWind styling (fully configured and working)
 
 ## Architecture
 
@@ -61,6 +61,7 @@ This is a **completed MVP** React Native pickleball session management app using
 **Environment:**
 - Copy `.env.example` to `.env` and configure Supabase credentials
 - Local development uses `http://127.0.0.1:54321` for Supabase URL
+- **NativeWind is fully configured** - requires `babel-preset-expo` and proper babel.config.js
 
 ## Core Service Layer (`lib/pickleballService.ts`)
 
