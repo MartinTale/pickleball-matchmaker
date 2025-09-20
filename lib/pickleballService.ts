@@ -37,7 +37,7 @@ export async function addPlayer(sessionId: string, name: string): Promise<Player
 export async function removePlayer(playerId: string): Promise<void> {
   const { error } = await supabase
     .from("players")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", playerId);
 
   if (error) throw error;
@@ -60,7 +60,7 @@ export async function completeMatch(matchId: string): Promise<void> {
 
   if (playersError) throw playersError;
 
-  // Mark players as available
+  // Mark players as available (only non-deleted players)
   const playerIds = matchPlayers
     .map(mp => mp.player_id)
     .filter((id): id is string => id !== null);
@@ -69,19 +69,21 @@ export async function completeMatch(matchId: string): Promise<void> {
     const { error: updateError } = await supabase
       .from("players")
       .update({ is_available: true })
-      .in("id", playerIds);
+      .in("id", playerIds)
+      .is("deleted_at", null);
 
     if (updateError) throw updateError;
   }
 }
 
 export async function generateRound(sessionId: string, roundNumber: number): Promise<MatchWithPlayers[]> {
-  // Fetch available players
+  // Fetch available players (excluding soft-deleted)
   const { data: players, error: fetchError } = await supabase
     .from("players")
     .select("*")
     .eq("session_id", sessionId)
-    .eq("is_available", true);
+    .eq("is_available", true)
+    .is("deleted_at", null);
 
   if (fetchError) throw fetchError;
 

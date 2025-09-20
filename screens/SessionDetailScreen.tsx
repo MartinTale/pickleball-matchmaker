@@ -79,11 +79,12 @@ export default function SessionDetailScreen() {
 
   const fetchSessionData = async () => {
     try {
-      // Fetch players
+      // Fetch players (excluding soft-deleted)
       const { data: playersData, error: playersError } = await supabase
         .from('players')
         .select('*')
         .eq('session_id', sessionId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: true });
 
       if (playersError) throw playersError;
@@ -141,7 +142,7 @@ export default function SessionDetailScreen() {
 
       await removePlayer(playerId);
 
-      // Force refetch to ensure consistency
+      // Force refetch to ensure consistency (will exclude soft-deleted players)
       await fetchSessionData();
     } catch (error) {
       console.error('Error removing player:', error);

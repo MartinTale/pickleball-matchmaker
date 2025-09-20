@@ -105,6 +105,7 @@ export type Database = {
       players: {
         Row: {
           created_at: string | null
+          deleted_at: string | null
           id: string
           is_available: boolean
           name: string
@@ -112,6 +113,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           is_available?: boolean
           name: string
@@ -119,6 +121,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           is_available?: boolean
           name?: string
