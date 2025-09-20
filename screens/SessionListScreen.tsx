@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, Alert, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../App';
@@ -13,7 +13,6 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'SessionList'>;
 export default function SessionListScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [newSessionName, setNewSessionName] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,14 +49,8 @@ export default function SessionListScreen() {
   };
 
   const handleCreateSession = async () => {
-    if (!newSessionName.trim()) {
-      Alert.alert('Error', 'Please enter a session name');
-      return;
-    }
-
     try {
-      const session = await createSession(newSessionName.trim());
-      setNewSessionName('');
+      const session = await createSession();
       navigation.navigate('SessionDetail', { sessionId: session.id });
     } catch (error) {
       console.error('Error creating session:', error);
@@ -70,7 +63,7 @@ export default function SessionListScreen() {
       className="bg-white p-4 m-2 rounded-lg shadow-sm border border-gray-200"
       onPress={() => navigation.navigate('SessionDetail', { sessionId: item.id })}
     >
-      <Text className="text-lg font-semibold text-gray-800">{item.name}</Text>
+      <Text className="text-lg font-semibold text-gray-800">Session</Text>
       <Text className="text-sm text-gray-500 mt-1">
         Created {new Date(item.created_at || '').toLocaleDateString()}
       </Text>
@@ -88,22 +81,12 @@ export default function SessionListScreen() {
   return (
     <View className="flex-1 bg-gray-50">
       <View className="p-4 bg-white border-b border-gray-200">
-        <Text className="text-xl font-bold text-gray-800 mb-4">Create New Session</Text>
-        <View className="flex-row gap-2">
-          <TextInput
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 bg-white"
-            placeholder="Enter session name"
-            value={newSessionName}
-            onChangeText={setNewSessionName}
-            onSubmitEditing={handleCreateSession}
-          />
-          <TouchableOpacity
-            className="bg-blue-500 px-4 py-2 rounded-lg justify-center"
-            onPress={handleCreateSession}
-          >
-            <Text className="text-white font-semibold">Create</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          className="bg-blue-500 px-6 py-3 rounded-lg"
+          onPress={handleCreateSession}
+        >
+          <Text className="text-white font-semibold text-center text-lg">Start New Session</Text>
+        </TouchableOpacity>
       </View>
 
       <View className="flex-1 p-2">
@@ -111,7 +94,7 @@ export default function SessionListScreen() {
         {sessions.length === 0 ? (
           <View className="flex-1 justify-center items-center">
             <Text className="text-gray-500 text-center">
-              No sessions yet.{'\n'}Create your first session above!
+              No sessions yet.{'\n'}Start your first session above!
             </Text>
           </View>
         ) : (

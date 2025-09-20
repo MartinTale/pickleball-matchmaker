@@ -12,10 +12,10 @@ export interface MatchWithPlayers {
   players: MatchPlayer[];
 }
 
-export async function createSession(name: string): Promise<Session> {
+export async function createSession(): Promise<Session> {
   const { data, error } = await supabase
     .from("sessions")
-    .insert({ name })
+    .insert({})
     .select()
     .single();
 

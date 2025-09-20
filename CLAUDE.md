@@ -40,7 +40,7 @@ This is a **completed MVP** React Native pickleball session management app using
 ```
 
 **Database Schema:**
-- `sessions`: Session management (id, name, created_at)
+- `sessions`: Session management (id, created_at) - simplified without names
 - `players`: Player management with availability tracking (id, session_id, name, is_available)
 - `matches`: Match tracking with round numbers (id, session_id, round_number, status)
 - `match_players`: Many-to-many relationship for match assignments (match_id, player_id, team)
@@ -66,7 +66,7 @@ This is a **completed MVP** React Native pickleball session management app using
 ## Core Service Layer (`lib/pickleballService.ts`)
 
 All business logic is implemented with proper TypeScript typing:
-- `createSession(name: string)`: Creates new pickleball session
+- `createSession()`: Creates new pickleball session (no name required)
 - `addPlayer(sessionId: string, name: string)`: Adds player to session
 - `removePlayer(playerId: string)`: Removes player from session
 - `generateRound(sessionId: string, roundNumber: number)`: Creates matches from available players
@@ -76,7 +76,7 @@ All business logic is implemented with proper TypeScript typing:
 
 **SessionListScreen:**
 - View all sessions with real-time updates
-- Create new sessions
+- One-click session creation (no names needed)
 - Navigate to session details
 
 **SessionDetailScreen:**
