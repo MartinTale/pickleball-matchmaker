@@ -102,12 +102,72 @@ export type Database = {
           },
         ]
       }
+      player_history: {
+        Row: {
+          count: number | null
+          created_at: string | null
+          id: string
+          last_round: number | null
+          other_player_id: string | null
+          player_id: string | null
+          relationship_type: string
+          session_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          count?: number | null
+          created_at?: string | null
+          id?: string
+          last_round?: number | null
+          other_player_id?: string | null
+          player_id?: string | null
+          relationship_type: string
+          session_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          count?: number | null
+          created_at?: string | null
+          id?: string
+          last_round?: number | null
+          other_player_id?: string | null
+          player_id?: string | null
+          relationship_type?: string
+          session_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_history_other_player_id_fkey"
+            columns: ["other_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_history_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_history_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       players: {
         Row: {
           created_at: string | null
           deleted_at: string | null
           id: string
           is_available: boolean
+          last_match_round: number | null
+          matches_played: number | null
           name: string
           session_id: string | null
         }
@@ -116,6 +176,8 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           is_available?: boolean
+          last_match_round?: number | null
+          matches_played?: number | null
           name: string
           session_id?: string | null
         }
@@ -124,6 +186,8 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           is_available?: boolean
+          last_match_round?: number | null
+          matches_played?: number | null
           name?: string
           session_id?: string | null
         }
