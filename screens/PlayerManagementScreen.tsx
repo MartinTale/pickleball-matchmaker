@@ -125,31 +125,12 @@ export default function PlayerManagementScreen() {
 	};
 
 	const handleAddDemoPlayer = async () => {
-		const baseNames = [
-			"Alex Chen",
-			"Sam Rodriguez",
-			"Jordan Smith",
-			"Taylor Johnson",
-			"Morgan Davis",
-			"Casey Brown",
-			"Riley Wilson",
-			"Cameron Lee",
-			"Avery Martinez",
-			"Drew Thompson",
-			"Blake Anderson",
-			"Parker Garcia",
-			"Quinn Miller",
-			"Sage Williams",
-			"Dakota Jones",
-		];
-
 		// Find the next available demo player number
-		const existingDemoPlayers = players.filter((p) => p.name.match(/^\d+\.\s/));
-		const existingNumbers = existingDemoPlayers.map((p) => parseInt(p.name.split(".")[0]));
+		const existingDemoPlayers = players.filter((p) => p.name.match(/^Player \d+$/));
+		const existingNumbers = existingDemoPlayers.map((p) => parseInt(p.name.split(" ")[1]));
 		const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
 
-		const randomBaseName = baseNames[Math.floor(Math.random() * baseNames.length)];
-		const demoPlayerName = `${nextNumber}. ${randomBaseName}`;
+		const demoPlayerName = `Player ${nextNumber}`;
 
 		try {
 			await addPlayer(sessionId, demoPlayerName);
