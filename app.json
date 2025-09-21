@@ -36,6 +36,16 @@
       "eas": {
         "projectId": "63545da8-bba9-4f51-90f6-8aa01543a4f6"
       }
-    }
+    },
+    "plugins": [
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "pickleball-matchmaking",
+          "organization": "love-and-coffee"
+        }
+      ]
+    ]
   }
 }

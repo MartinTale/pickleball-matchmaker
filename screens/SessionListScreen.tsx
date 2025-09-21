@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, Alert, Button } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Trash2 } from "lucide-react-native";
+import * as Sentry from "@sentry/react-native";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
 import { createSession, deleteSession } from "../lib/pickleballService";
