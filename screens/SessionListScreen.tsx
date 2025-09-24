@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert, Button } from "react-native";
+import { View, Text, TouchableOpacity, Alert, Button, SectionList } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Trash2 } from "lucide-react-native";
@@ -19,9 +19,14 @@ interface SessionWithStats extends Session {
 	completedMatchCount: number;
 }
 
+interface SessionSection {
+	title: string;
+	data: SessionWithStats[];
+}
+
 export default function SessionListScreen() {
 	const navigation = useNavigation<NavigationProp>();
-	const [sessions, setSessions] = useState<SessionWithStats[]>([]);
+	const [sessionSections, setSessionSections] = useState<SessionSection[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
@@ -116,13 +121,48 @@ export default function SessionListScreen() {
 				});
 			}
 
-			setSessions(sessionsWithStats);
+			organizeSessions(sessionsWithStats);
 		} catch (error) {
 			console.error("Error fetching sessions:", error);
 			Alert.alert("Error", "Failed to fetch sessions");
 		} finally {
 			setLoading(false);
 		}
+	};
+
+	const organizeSessions = (sessions: SessionWithStats[]) => {
+		const today = new Date();
+		const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+		const todaySessions: SessionWithStats[] = [];
+		const olderSessions: SessionWithStats[] = [];
+
+		sessions.forEach(session => {
+			const sessionDate = new Date(session.created_at || "");
+			if (sessionDate >= todayStart) {
+				todaySessions.push(session);
+			} else {
+				olderSessions.push(session);
+			}
+		});
+
+		const sections: SessionSection[] = [];
+
+		if (todaySessions.length > 0) {
+			sections.push({
+				title: "Today",
+				data: todaySessions
+			});
+		}
+
+		if (olderSessions.length > 0) {
+			sections.push({
+				title: "Previous Sessions",
+				data: olderSessions
+			});
+		}
+
+		setSessionSections(sections);
 	};
 
 	const handleCreateSession = async () => {
@@ -149,9 +189,6 @@ export default function SessionListScreen() {
 					style: "destructive",
 					onPress: async () => {
 						try {
-							// Optimistically remove from UI
-							setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-
 							await deleteSession(sessionId);
 
 							// Force refetch to ensure consistency
@@ -213,6 +250,12 @@ export default function SessionListScreen() {
 		);
 	};
 
+	const renderSectionHeader = ({ section: { title } }: { section: SessionSection }) => (
+		<View className='px-2 py-2 bg-gray-50'>
+			<Text className='text-lg font-semibold text-gray-800'>{title}</Text>
+		</View>
+	);
+
 	if (loading) {
 		return (
 			<View className='flex-1 justify-center items-center bg-gray-50'>
@@ -233,19 +276,20 @@ export default function SessionListScreen() {
 			</View>
 
 			<View className='flex-1 p-2'>
-				<Text className='text-lg font-semibold text-gray-800 mb-2 px-2'>Recent Sessions</Text>
-				{sessions.length === 0 ? (
+				{sessionSections.length === 0 ? (
 					<View className='flex-1 justify-center items-center'>
 						<Text className='text-gray-500 text-center'>
 							No sessions yet.{"\n"}Start your first session above!
 						</Text>
 					</View>
 				) : (
-					<FlatList
-						data={sessions}
+					<SectionList
+						sections={sessionSections}
 						keyExtractor={(item) => item.id}
 						renderItem={renderSession}
+						renderSectionHeader={renderSectionHeader}
 						showsVerticalScrollIndicator={false}
+						stickySectionHeadersEnabled={false}
 					/>
 				)}
 			</View>
