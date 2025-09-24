@@ -4,7 +4,7 @@ import { useRoute, RouteProp } from "@react-navigation/native";
 import { Trash2, RotateCcw } from "lucide-react-native";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
-import { addPlayer, removePlayer, restorePlayer } from "../lib/pickleballService";
+import { addPlayer, removePlayer, restorePlayer, calculatePlayerWeights } from "../lib/pickleballService";
 import { Database } from "../lib/database.types";
 
 type Player = Database["public"]["Tables"]["players"]["Row"];
@@ -16,6 +16,7 @@ export default function PlayerManagementScreen() {
 
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [deletedPlayers, setDeletedPlayers] = useState<Player[]>([]);
+	const [playerWeights, setPlayerWeights] = useState<Map<string, number>>(new Map());
 	const [newPlayerName, setNewPlayerName] = useState("");
 	const [loading, setLoading] = useState(true);
 
@@ -71,6 +72,29 @@ export default function PlayerManagementScreen() {
 
 			setPlayers(playersData || []);
 			setDeletedPlayers(deletedPlayersData || []);
+
+			// Calculate current round number
+			const { data: matches } = await supabase
+				.from("matches")
+				.select("round_number")
+				.eq("session_id", sessionId)
+				.order("round_number", { ascending: false })
+				.limit(1);
+
+			const currentRound = (matches?.[0]?.round_number || 0) + 1;
+
+			// Calculate player weights
+			try {
+				const weights = await calculatePlayerWeights(sessionId, currentRound);
+				const weightMap = new Map();
+				weights.forEach(({ player, weight }) => {
+					weightMap.set(player.id, weight);
+				});
+				setPlayerWeights(weightMap);
+			} catch (weightError) {
+				console.log("Could not calculate weights:", weightError);
+				setPlayerWeights(new Map());
+			}
 		} catch (error) {
 			console.error("Error fetching players:", error);
 			Alert.alert("Error", "Failed to fetch players");
@@ -170,24 +194,40 @@ export default function PlayerManagementScreen() {
 		}
 	};
 
-	const renderPlayer = ({ item }: { item: Player }) => (
-		<View className='flex-row items-center justify-between bg-white p-3 m-1 rounded-lg border border-gray-200'>
-			<View className='flex-row items-center'>
-				<View
-					className={`w-3 h-3 rounded-full mr-3 ${
-						item.is_available ? "bg-green-500" : "bg-red-500"
-					}`}
-				/>
-				<Text className='text-gray-800 font-medium'>{item.name}</Text>
+	const renderPlayer = ({ item }: { item: Player }) => {
+		const weight = playerWeights.get(item.id);
+
+		return (
+			<View className='flex-row items-center justify-between bg-white p-3 m-1 rounded-lg border border-gray-200'>
+				<View className='flex-row items-center flex-1'>
+					<View
+						className={`w-3 h-3 rounded-full mr-3 ${
+							item.is_available ? "bg-green-500" : "bg-red-500"
+						}`}
+					/>
+					<View className='flex-1'>
+						<Text className='text-gray-800 font-medium'>{item.name}</Text>
+						{weight !== undefined && item.is_available && (
+							<Text className='text-xs text-blue-600 mt-1'>
+								Priority: {weight} • Matches: {item.matches_played || 0} • Last: Round {item.last_match_round || 0}
+							</Text>
+						)}
+					</View>
+					{weight !== undefined && item.is_available && (
+						<View className='bg-blue-100 px-2 py-1 rounded-full mr-2'>
+							<Text className='text-blue-700 text-xs font-semibold'>{weight}</Text>
+						</View>
+					)}
+				</View>
+				<TouchableOpacity
+					className='bg-red-500 p-1 rounded'
+					onPress={() => handleRemovePlayer(item.id)}
+				>
+					<Trash2 size={16} color='white' />
+				</TouchableOpacity>
 			</View>
-			<TouchableOpacity
-				className='bg-red-500 p-1 rounded'
-				onPress={() => handleRemovePlayer(item.id)}
-			>
-				<Trash2 size={16} color='white' />
-			</TouchableOpacity>
-		</View>
-	);
+		);
+	};
 
 	const renderDeletedPlayer = ({ item }: { item: Player }) => {
 		const deletedDate = new Date(item.deleted_at || "");
