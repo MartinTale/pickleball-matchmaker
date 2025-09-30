@@ -9,13 +9,15 @@ This is a **production-ready** React Native pickleball session management app us
 ## Current Status
 
 **✅ PRODUCTION READY** - All features implemented and polished:
-- Session creation and management with soft delete
-- Comprehensive player management (add/remove/restore players)
-- Random matchmaking algorithm (2v2) with one match per round
+- Session creation and management with configurable court counts and soft delete
+- Comprehensive player management (add/remove/restore players) with visual weight indicators
+- Intelligent weighted matchmaking algorithm (2v2) with global optimization across multiple courts
+- Partnership/opponent history tracking to maximize variety and fairness
 - Match completion workflow with real-time updates
 - Professional UI with Lucide icons and NativeWind styling
-- Separate player management screen for better UX
+- Separate player management screen with color-coded priority system
 - Complete session statistics and history tracking
+- Partial round support when insufficient players available
 
 ## Architecture
 
