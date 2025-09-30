@@ -148,14 +148,17 @@ export default function SessionDetailScreen() {
 	};
 
 	const handleGenerateRound = async () => {
+		const courtCount = session?.court_count || 1;
 		const availablePlayers = players.filter((p) => p.is_available);
-		if (availablePlayers.length < 4) {
-			Alert.alert("Error", "Need at least 4 available players to generate matches");
+		const playersNeeded = courtCount * 4;
+
+		if (availablePlayers.length < playersNeeded) {
+			Alert.alert("Error", `Need at least ${playersNeeded} available players to generate ${courtCount} match(es)`);
 			return;
 		}
 
 		try {
-			await generateRound(sessionId, currentRound);
+			await generateRound(sessionId, currentRound, courtCount);
 		} catch (error) {
 			console.error("Error generating round:", error);
 			Alert.alert("Error", "Failed to generate round");
@@ -237,6 +240,9 @@ export default function SessionDetailScreen() {
 	}
 
 	const availablePlayers = players.filter((p) => p.is_available);
+	const courtCount = session?.court_count || 1;
+	const playersNeeded = courtCount * 4;
+	const canGenerateRound = availablePlayers.length >= playersNeeded;
 
 	return (
 		<ScrollView className='flex-1 bg-gray-50'>
@@ -254,7 +260,7 @@ export default function SessionDetailScreen() {
 						<Text className='text-green-600 text-sm'>Available</Text>
 					</View>
 					<View className='bg-purple-100 px-4 py-3 rounded-lg flex-1 ml-2'>
-						<Text className='text-purple-700 text-lg font-bold'>{session?.court_count || 1}</Text>
+						<Text className='text-purple-700 text-lg font-bold'>{courtCount}</Text>
 						<Text className='text-purple-600 text-sm'>Courts</Text>
 					</View>
 				</View>
@@ -272,18 +278,18 @@ export default function SessionDetailScreen() {
 				<Text className='text-lg font-bold text-gray-800 mb-3'>Round Management</Text>
 				<TouchableOpacity
 					className={`px-6 py-3 rounded-lg ${
-						availablePlayers.length >= 4 ? "bg-blue-500" : "bg-gray-400"
+						canGenerateRound ? "bg-blue-500" : "bg-gray-400"
 					}`}
 					onPress={handleGenerateRound}
-					disabled={availablePlayers.length < 4}
+					disabled={!canGenerateRound}
 				>
 					<Text className='text-white font-semibold text-center text-lg'>
 						Generate Round {currentRound}
 					</Text>
 				</TouchableOpacity>
-				{availablePlayers.length < 4 && (
+				{!canGenerateRound && (
 					<Text className='text-gray-500 text-center text-sm mt-2'>
-						Need at least 4 available players to generate matches
+						Need at least {playersNeeded} available players to generate {courtCount} match(es)
 					</Text>
 				)}
 			</View>

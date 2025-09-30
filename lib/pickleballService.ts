@@ -340,62 +340,77 @@ async function optimizeTeams(
 
 export async function generateRound(
 	sessionId: string,
-	roundNumber: number
+	roundNumber: number,
+	courtCount: number = 1
 ): Promise<MatchWithPlayers[]> {
 	// Calculate player weights and select players using weighted system
 	const playerWeights = await calculatePlayerWeights(sessionId);
 
-	if (playerWeights.length < 4) {
-		throw new Error("Not enough players to start a match. Need at least 4 players.");
+	const playersNeeded = courtCount * 4;
+	if (playerWeights.length < playersNeeded) {
+		throw new Error(`Not enough players to start ${courtCount} match(es). Need at least ${playersNeeded} players.`);
 	}
 
-	// Select 4 players using weighted selection
-	const selectedPlayers = selectWeightedPlayers(playerWeights, 4);
+	// Select players for all courts (4 players per court)
+	const selectedPlayers = selectWeightedPlayers(playerWeights, playersNeeded);
 
-	// Optimize team assignments based on partnership/opponent history
-	const { team1, team2 } = await optimizeTeams(selectedPlayers, sessionId);
+	// Create matches for each court
+	const createdMatches: MatchWithPlayers[] = [];
+	const allPlayerIdsToMarkUnavailable: string[] = [];
 
-	// Create match
-	const { data: match, error: matchError } = await supabase
-		.from("matches")
-		.insert({
-			session_id: sessionId,
-			round_number: roundNumber,
-			status: "active",
-		})
-		.select()
-		.single();
+	for (let courtIndex = 0; courtIndex < courtCount; courtIndex++) {
+		// Get 4 players for this court
+		const courtPlayers = selectedPlayers.slice(courtIndex * 4, (courtIndex + 1) * 4);
 
-	if (matchError) throw matchError;
+		// Optimize team assignments based on partnership/opponent history
+		const { team1, team2 } = await optimizeTeams(courtPlayers, sessionId);
 
-	// Create match player assignments with optimized teams
-	const matchPlayerInserts = [
-		{ match_id: match.id, player_id: team1[0].id, team: 1 },
-		{ match_id: match.id, player_id: team1[1].id, team: 1 },
-		{ match_id: match.id, player_id: team2[0].id, team: 2 },
-		{ match_id: match.id, player_id: team2[1].id, team: 2 },
-	];
+		// Create match
+		const { data: match, error: matchError } = await supabase
+			.from("matches")
+			.insert({
+				session_id: sessionId,
+				round_number: roundNumber,
+				status: "active",
+			})
+			.select()
+			.single();
 
-	const { data: matchPlayers, error: mpError } = await supabase
-		.from("match_players")
-		.insert(matchPlayerInserts)
-		.select();
+		if (matchError) throw matchError;
 
-	if (mpError) throw mpError;
+		// Create match player assignments with optimized teams
+		const matchPlayerInserts = [
+			{ match_id: match.id, player_id: team1[0].id, team: 1 },
+			{ match_id: match.id, player_id: team1[1].id, team: 1 },
+			{ match_id: match.id, player_id: team2[0].id, team: 2 },
+			{ match_id: match.id, player_id: team2[1].id, team: 2 },
+		];
 
-	// Mark selected players as unavailable
-	const playerIds = selectedPlayers.map((p) => p.id);
-	const { error: updateError } = await supabase
-		.from("players")
-		.update({ is_available: false })
-		.in("id", playerIds);
+		const { data: matchPlayers, error: mpError } = await supabase
+			.from("match_players")
+			.insert(matchPlayerInserts)
+			.select();
 
-	if (updateError) throw updateError;
+		if (mpError) throw mpError;
 
-	return [
-		{
+		createdMatches.push({
 			match,
 			players: matchPlayers || [],
-		},
-	];
+		});
+
+		// Collect player IDs to mark unavailable
+		allPlayerIdsToMarkUnavailable.push(...courtPlayers.map((p) => p.id));
+	}
+
+	// Mark all selected players as unavailable
+	if (allPlayerIdsToMarkUnavailable.length > 0) {
+		const { error: updateError } = await supabase
+			.from("players")
+			.update({ is_available: false })
+			.in("id", allPlayerIdsToMarkUnavailable);
+
+		if (updateError) throw updateError;
+	}
+
+	return createdMatches;
 }
