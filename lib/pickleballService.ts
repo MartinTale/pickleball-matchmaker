@@ -259,11 +259,17 @@ function selectWeightedPlayers(playerWeights: PlayerWeight[], count: number = 4)
 	return sortedPlayers.slice(0, count).map((pw) => pw.player);
 }
 
-async function optimizeTeams(
+interface OptimizedMatch {
+	team1: Player[];
+	team2: Player[];
+}
+
+async function optimizeAllMatches(
 	players: Player[],
-	sessionId: string
-): Promise<{ team1: Player[]; team2: Player[] }> {
-	// Get partnership/opponent history for these players
+	sessionId: string,
+	matchCount: number
+): Promise<OptimizedMatch[]> {
+	// Get partnership/opponent history for all players
 	const playerIds = players.map((p) => p.id);
 	const { data: history, error } = await supabase
 		.from("player_history")
@@ -274,68 +280,85 @@ async function optimizeTeams(
 
 	if (error) throw error;
 
-	const historyMap = new Map<string, { partners: number; opponents: number }>();
+	// Build history lookup
+	const getHistory = (p1Id: string, p2Id: string, type: "partner" | "opponent"): number => {
+		const record = history?.find(
+			(h) => h.player_id === p1Id && h.other_player_id === p2Id && h.relationship_type === type
+		);
+		return record?.count || 0;
+	};
 
-	// Build history matrix
-	for (const p1 of players) {
-		for (const p2 of players) {
-			if (p1.id !== p2.id) {
-				const key = `${p1.id}-${p2.id}`;
-				const partnerHistory = history?.find(
-					(h) =>
-						h.player_id === p1.id &&
-						h.other_player_id === p2.id &&
-						h.relationship_type === "partner"
-				);
-				const opponentHistory = history?.find(
-					(h) =>
-						h.player_id === p1.id &&
-						h.other_player_id === p2.id &&
-						h.relationship_type === "opponent"
-				);
-
-				historyMap.set(key, {
-					partners: partnerHistory?.count || 0,
-					opponents: opponentHistory?.count || 0,
-				});
-			}
-		}
-	}
-
-	// Try different team combinations and score them
-	const combinations = [
-		{ team1: [players[0], players[1]], team2: [players[2], players[3]] },
-		{ team1: [players[0], players[2]], team2: [players[1], players[3]] },
-		{ team1: [players[0], players[3]], team2: [players[1], players[2]] },
-	];
-
-	let bestCombination = combinations[0];
-	let bestScore = -Infinity;
-
-	for (const combo of combinations) {
+	// Score a complete match assignment
+	const scoreMatches = (matches: OptimizedMatch[]): number => {
 		let score = 0;
-
-		// Score partnerships (lower previous partnerships = better)
-		for (const team of [combo.team1, combo.team2]) {
-			const history = historyMap.get(`${team[0].id}-${team[1].id}`);
-			score -= (history?.partners || 0) * 4;
-		}
-
-		// Score opponents (lower previous opponent matches = better)
-		for (const t1Player of combo.team1) {
-			for (const t2Player of combo.team2) {
-				const history = historyMap.get(`${t1Player.id}-${t2Player.id}`);
-				score -= (history?.opponents || 0) * 1;
+		for (const match of matches) {
+			// Score partnerships (weight: -4 per previous partnership)
+			for (const team of [match.team1, match.team2]) {
+				score -= getHistory(team[0].id, team[1].id, "partner") * 4;
+			}
+			// Score opponents (weight: -1 per previous opponent matchup)
+			for (const t1Player of match.team1) {
+				for (const t2Player of match.team2) {
+					score -= getHistory(t1Player.id, t2Player.id, "opponent") * 1;
+				}
 			}
 		}
+		return score;
+	};
 
-		if (score > bestScore) {
-			bestScore = score;
-			bestCombination = combo;
+	// Generate all possible ways to group players into matches
+	// For simplicity with multiple courts, use a greedy approach with random shuffling
+	const bestMatches: OptimizedMatch[] = [];
+	let bestScore = -Infinity;
+	const attempts = Math.min(1000, matchCount === 1 ? 100 : 500); // More attempts for multiple courts
+
+	for (let attempt = 0; attempt < attempts; attempt++) {
+		const shuffled = [...players].sort(() => Math.random() - 0.5);
+		const matches: OptimizedMatch[] = [];
+
+		for (let i = 0; i < matchCount; i++) {
+			const matchPlayers = shuffled.slice(i * 4, (i + 1) * 4);
+
+			// For each group of 4, try all 3 team combinations
+			const combinations = [
+				{ team1: [matchPlayers[0], matchPlayers[1]], team2: [matchPlayers[2], matchPlayers[3]] },
+				{ team1: [matchPlayers[0], matchPlayers[2]], team2: [matchPlayers[1], matchPlayers[3]] },
+				{ team1: [matchPlayers[0], matchPlayers[3]], team2: [matchPlayers[1], matchPlayers[2]] },
+			];
+
+			let bestCombo = combinations[0];
+			let bestComboScore = -Infinity;
+
+			for (const combo of combinations) {
+				let score = 0;
+				// Score partnerships
+				for (const team of [combo.team1, combo.team2]) {
+					score -= getHistory(team[0].id, team[1].id, "partner") * 4;
+				}
+				// Score opponents
+				for (const t1Player of combo.team1) {
+					for (const t2Player of combo.team2) {
+						score -= getHistory(t1Player.id, t2Player.id, "opponent") * 1;
+					}
+				}
+				if (score > bestComboScore) {
+					bestComboScore = score;
+					bestCombo = combo;
+				}
+			}
+
+			matches.push(bestCombo);
+		}
+
+		const totalScore = scoreMatches(matches);
+		if (totalScore > bestScore) {
+			bestScore = totalScore;
+			bestMatches.length = 0;
+			bestMatches.push(...matches);
 		}
 	}
 
-	return bestCombination;
+	return bestMatches;
 }
 
 export async function generateRound(
@@ -354,17 +377,14 @@ export async function generateRound(
 	// Select players for all courts (4 players per court)
 	const selectedPlayers = selectWeightedPlayers(playerWeights, playersNeeded);
 
-	// Create matches for each court
+	// Optimize all matches considering all players together
+	const optimizedMatches = await optimizeAllMatches(selectedPlayers, sessionId, courtCount);
+
+	// Create matches in database
 	const createdMatches: MatchWithPlayers[] = [];
 	const allPlayerIdsToMarkUnavailable: string[] = [];
 
-	for (let courtIndex = 0; courtIndex < courtCount; courtIndex++) {
-		// Get 4 players for this court
-		const courtPlayers = selectedPlayers.slice(courtIndex * 4, (courtIndex + 1) * 4);
-
-		// Optimize team assignments based on partnership/opponent history
-		const { team1, team2 } = await optimizeTeams(courtPlayers, sessionId);
-
+	for (const optimizedMatch of optimizedMatches) {
 		// Create match
 		const { data: match, error: matchError } = await supabase
 			.from("matches")
@@ -380,10 +400,10 @@ export async function generateRound(
 
 		// Create match player assignments with optimized teams
 		const matchPlayerInserts = [
-			{ match_id: match.id, player_id: team1[0].id, team: 1 },
-			{ match_id: match.id, player_id: team1[1].id, team: 1 },
-			{ match_id: match.id, player_id: team2[0].id, team: 2 },
-			{ match_id: match.id, player_id: team2[1].id, team: 2 },
+			{ match_id: match.id, player_id: optimizedMatch.team1[0].id, team: 1 },
+			{ match_id: match.id, player_id: optimizedMatch.team1[1].id, team: 1 },
+			{ match_id: match.id, player_id: optimizedMatch.team2[0].id, team: 2 },
+			{ match_id: match.id, player_id: optimizedMatch.team2[1].id, team: 2 },
 		];
 
 		const { data: matchPlayers, error: mpError } = await supabase
@@ -399,7 +419,10 @@ export async function generateRound(
 		});
 
 		// Collect player IDs to mark unavailable
-		allPlayerIdsToMarkUnavailable.push(...courtPlayers.map((p) => p.id));
+		allPlayerIdsToMarkUnavailable.push(
+			...optimizedMatch.team1.map((p) => p.id),
+			...optimizedMatch.team2.map((p) => p.id)
+		);
 	}
 
 	// Mark all selected players as unavailable
