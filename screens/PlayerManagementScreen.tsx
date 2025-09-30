@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, FlatList, TouchableOpacity, TextInput, Alert, ScrollView } from "react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Trash2, RotateCcw } from "lucide-react-native";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
@@ -18,6 +19,7 @@ type RouteProps = RouteProp<RootStackParamList, "PlayerManagement">;
 export default function PlayerManagementScreen() {
 	const route = useRoute<RouteProps>();
 	const { sessionId } = route.params;
+	const insets = useSafeAreaInsets();
 
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [deletedPlayers, setDeletedPlayers] = useState<Player[]>([]);
@@ -293,7 +295,7 @@ export default function PlayerManagementScreen() {
 	const availablePlayers = players.filter((p) => p.is_available);
 
 	return (
-		<ScrollView className='flex-1 bg-gray-50'>
+		<ScrollView className='flex-1 bg-gray-50' contentContainerStyle={{ paddingBottom: insets.bottom }}>
 			{/* Add Player Section */}
 			<View className='p-4 bg-white border-b border-gray-200'>
 				<Text className='text-lg font-bold text-gray-800 mb-3'>Add Player</Text>

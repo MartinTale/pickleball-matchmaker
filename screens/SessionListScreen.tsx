@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Alert, Button, SectionList, TextInput, Modal } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Trash2, Plus, Minus } from "lucide-react-native";
 import * as Sentry from "@sentry/react-native";
 import { RootStackParamList } from "../App";
@@ -26,6 +27,7 @@ interface SessionSection {
 
 export default function SessionListScreen() {
 	const navigation = useNavigation<NavigationProp>();
+	const insets = useSafeAreaInsets();
 	const [sessionSections, setSessionSections] = useState<SessionSection[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [showCourtModal, setShowCourtModal] = useState(false);
@@ -126,7 +128,8 @@ export default function SessionListScreen() {
 			organizeSessions(sessionsWithStats);
 		} catch (error) {
 			console.error("Error fetching sessions:", error);
-			Alert.alert("Error", "Failed to fetch sessions");
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			Alert.alert("Error", `Failed to fetch sessions: ${errorMessage}`);
 		} finally {
 			setLoading(false);
 		}
@@ -304,6 +307,7 @@ export default function SessionListScreen() {
 						renderSectionHeader={renderSectionHeader}
 						showsVerticalScrollIndicator={false}
 						stickySectionHeadersEnabled={false}
+						contentContainerStyle={{ paddingBottom: insets.bottom }}
 					/>
 				)}
 			</View>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, FlatList, TouchableOpacity, Alert, ScrollView, SectionList } from "react-native";
 import { useRoute, RouteProp, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
 import { generateRound, completeMatch } from "../lib/pickleballService";
@@ -30,6 +31,7 @@ export default function SessionDetailScreen() {
 	const route = useRoute<RouteProps>();
 	const navigation = useNavigation<NavigationProp>();
 	const { sessionId } = route.params;
+	const insets = useSafeAreaInsets();
 
 	const [session, setSession] = useState<Session | null>(null);
 	const [players, setPlayers] = useState<Player[]>([]);
@@ -261,7 +263,7 @@ export default function SessionDetailScreen() {
 	const canGenerateRound = availablePlayers.length >= 4;
 
 	return (
-		<ScrollView className='flex-1 bg-gray-50'>
+		<ScrollView className='flex-1 bg-gray-50' contentContainerStyle={{ paddingBottom: insets.bottom }}>
 			{/* Session Overview */}
 			<View className='p-4 bg-white border-b border-gray-200'>
 				<Text className='text-xl font-bold text-gray-800 mb-4'>Session Overview</Text>
