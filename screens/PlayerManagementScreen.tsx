@@ -209,13 +209,13 @@ export default function PlayerManagementScreen() {
 						<Text className='text-gray-800 font-medium'>{item.name}</Text>
 						{weight !== undefined && (
 							<Text className='text-xs text-blue-600 mt-1'>
-								Priority: {weight} • Matches: {item.matches_played || 0} • Last: Round {item.last_match_round || 0}
+								Priority: {weight.toFixed(0)} • Matches: {(item.matches_played || 0).toFixed(2)} • Last: Round {item.last_match_round || 0}
 							</Text>
 						)}
 					</View>
 					{weight !== undefined && (
 						<View className='bg-blue-100 px-2 py-1 rounded-full mr-2'>
-							<Text className='text-blue-700 text-xs font-semibold'>{weight}</Text>
+							<Text className='text-blue-700 text-xs font-semibold'>{weight.toFixed(0)}</Text>
 						</View>
 					)}
 				</View>
@@ -241,7 +241,7 @@ export default function PlayerManagementScreen() {
 						<Text className='text-gray-600 font-medium'>{item.name}</Text>
 						{weight !== undefined && (
 							<Text className='text-xs text-gray-500 mt-1'>
-								Priority: {weight} • Matches: {item.matches_played || 0} • Last: Round {item.last_match_round || 0}
+								Priority: {weight.toFixed(0)} • Matches: {(item.matches_played || 0).toFixed(2)} • Last: Round {item.last_match_round || 0}
 							</Text>
 						)}
 						<Text className='text-xs text-gray-400 mt-1'>
@@ -255,7 +255,7 @@ export default function PlayerManagementScreen() {
 					</View>
 					{weight !== undefined && (
 						<View className='bg-gray-200 px-2 py-1 rounded-full mr-2'>
-							<Text className='text-gray-600 text-xs font-semibold'>{weight}</Text>
+							<Text className='text-gray-600 text-xs font-semibold'>{weight.toFixed(0)}</Text>
 						</View>
 					)}
 				</View>

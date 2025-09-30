@@ -365,6 +365,17 @@ export async function generateRound(
 	roundNumber: number,
 	courtCount: number = 1
 ): Promise<MatchWithPlayers[]> {
+	// Get session details to know the total court count
+	const { data: session, error: sessionError } = await supabase
+		.from("sessions")
+		.select("court_count")
+		.eq("id", sessionId)
+		.single();
+
+	if (sessionError) throw sessionError;
+
+	const totalCourts = session?.court_count || 1;
+
 	// Calculate player weights and select players using weighted system
 	const playerWeights = await calculatePlayerWeights(sessionId);
 
@@ -446,6 +457,10 @@ export async function generateRound(
 	}
 
 	// Increment matches_played for removed players (soft-deleted)
+	// For removed players, only add partial weight: matches_created / total_court_count
+	const matchesCreated = createdMatches.length;
+	const weightIncrement = matchesCreated / totalCourts;
+
 	const { data: removedPlayers } = await supabase
 		.from("players")
 		.select("id, matches_played")
@@ -457,7 +472,7 @@ export async function generateRound(
 			const { error: updateError } = await supabase
 				.from("players")
 				.update({
-					matches_played: (player.matches_played || 0) + 1,
+					matches_played: (player.matches_played || 0) + weightIncrement,
 				})
 				.eq("id", player.id);
 
