@@ -4,7 +4,12 @@ import { useRoute, RouteProp } from "@react-navigation/native";
 import { Trash2, RotateCcw } from "lucide-react-native";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
-import { addPlayer, removePlayer, restorePlayer, calculatePlayerWeights } from "../lib/pickleballService";
+import {
+	addPlayer,
+	removePlayer,
+	restorePlayer,
+	calculatePlayerWeights,
+} from "../lib/pickleballService";
 import { Database } from "../lib/database.types";
 
 type Player = Database["public"]["Tables"]["players"]["Row"];
@@ -178,7 +183,7 @@ export default function PlayerManagementScreen() {
 			if (playerToRestore) {
 				setPlayers((prev) => [
 					...prev,
-					{ ...playerToRestore, deleted_at: null, is_available: true }
+					{ ...playerToRestore, deleted_at: null, is_available: true },
 				]);
 			}
 
@@ -207,11 +212,6 @@ export default function PlayerManagementScreen() {
 					/>
 					<View className='flex-1'>
 						<Text className='text-gray-800 font-medium'>{item.name}</Text>
-						{weight !== undefined && (
-							<Text className='text-xs text-blue-600 mt-1'>
-								Priority: {weight.toFixed(0)} • Matches: {(item.matches_played || 0).toFixed(2)} • Last: Round {item.last_match_round || 0}
-							</Text>
-						)}
 					</View>
 					{weight !== undefined && (
 						<View className='bg-blue-100 px-2 py-1 rounded-full mr-2'>
@@ -239,11 +239,6 @@ export default function PlayerManagementScreen() {
 					<View className='w-3 h-3 rounded-full mr-3 bg-gray-400' />
 					<View className='flex-1'>
 						<Text className='text-gray-600 font-medium'>{item.name}</Text>
-						{weight !== undefined && (
-							<Text className='text-xs text-gray-500 mt-1'>
-								Priority: {weight.toFixed(0)} • Matches: {(item.matches_played || 0).toFixed(2)} • Last: Round {item.last_match_round || 0}
-							</Text>
-						)}
 						<Text className='text-xs text-gray-400 mt-1'>
 							Removed {deletedDate.toLocaleDateString()} at{" "}
 							{deletedDate.toLocaleTimeString("en-US", {
