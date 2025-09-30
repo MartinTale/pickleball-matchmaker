@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabaseClient";
 import { generateRound, completeMatch } from "../lib/pickleballService";
 import { Database } from "../lib/database.types";
 
+type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Player = Database["public"]["Tables"]["players"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 type MatchPlayer = Database["public"]["Tables"]["match_players"]["Row"];
@@ -24,6 +25,7 @@ export default function SessionDetailScreen() {
 	const navigation = useNavigation<NavigationProp>();
 	const { sessionId } = route.params;
 
+	const [session, setSession] = useState<Session | null>(null);
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [matches, setMatches] = useState<MatchWithDetails[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -96,6 +98,15 @@ export default function SessionDetailScreen() {
 
 	const fetchSessionData = async () => {
 		try {
+			// Fetch session details
+			const { data: sessionData, error: sessionError } = await supabase
+				.from("sessions")
+				.select("*")
+				.eq("id", sessionId)
+				.single();
+
+			if (sessionError) throw sessionError;
+
 			// Fetch active players (excluding soft-deleted) for counts only
 			const { data: playersData, error: playersError } = await supabase
 				.from("players")
@@ -121,6 +132,7 @@ export default function SessionDetailScreen() {
 
 			if (matchesError) throw matchesError;
 
+			setSession(sessionData);
 			setPlayers(playersData || []);
 			setMatches((matchesData as MatchWithDetails[]) || []);
 
@@ -237,9 +249,13 @@ export default function SessionDetailScreen() {
 						<Text className='text-blue-700 text-lg font-bold'>{players.length}</Text>
 						<Text className='text-blue-600 text-sm'>Total Players</Text>
 					</View>
-					<View className='bg-green-100 px-4 py-3 rounded-lg flex-1 ml-2'>
+					<View className='bg-green-100 px-4 py-3 rounded-lg flex-1 mx-2'>
 						<Text className='text-green-700 text-lg font-bold'>{availablePlayers.length}</Text>
 						<Text className='text-green-600 text-sm'>Available</Text>
+					</View>
+					<View className='bg-purple-100 px-4 py-3 rounded-lg flex-1 ml-2'>
+						<Text className='text-purple-700 text-lg font-bold'>{session?.court_count || 1}</Text>
+						<Text className='text-purple-600 text-sm'>Courts</Text>
 					</View>
 				</View>
 

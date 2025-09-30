@@ -203,16 +203,19 @@ export type Database = {
       }
       sessions: {
         Row: {
+          court_count: number
           created_at: string | null
           deleted_at: string | null
           id: string
         }
         Insert: {
+          court_count?: number
           created_at?: string | null
           deleted_at?: string | null
           id?: string
         }
         Update: {
+          court_count?: number
           created_at?: string | null
           deleted_at?: string | null
           id?: string

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Alert, Button, SectionList } from "react-native";
+import { View, Text, TouchableOpacity, Alert, Button, SectionList, TextInput, Modal } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
-import { Trash2 } from "lucide-react-native";
+import { Trash2, Plus, Minus } from "lucide-react-native";
 import * as Sentry from "@sentry/react-native";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
@@ -28,6 +28,8 @@ export default function SessionListScreen() {
 	const navigation = useNavigation<NavigationProp>();
 	const [sessionSections, setSessionSections] = useState<SessionSection[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [showCourtModal, setShowCourtModal] = useState(false);
+	const [courtCount, setCourtCount] = useState("1");
 
 	useEffect(() => {
 		fetchSessions();
@@ -166,8 +168,20 @@ export default function SessionListScreen() {
 	};
 
 	const handleCreateSession = async () => {
+		setShowCourtModal(true);
+	};
+
+	const handleConfirmCreateSession = async () => {
 		try {
-			const session = await createSession();
+			const count = parseInt(courtCount, 10);
+			if (isNaN(count) || count < 1) {
+				Alert.alert("Invalid Input", "Please enter a valid number of courts (minimum 1)");
+				return;
+			}
+
+			setShowCourtModal(false);
+			const session = await createSession(count);
+			setCourtCount("1"); // Reset for next time
 			navigation.navigate("SessionDetail", { sessionId: session.id });
 		} catch (error) {
 			console.error("Error creating session:", error);
@@ -293,6 +307,65 @@ export default function SessionListScreen() {
 					/>
 				)}
 			</View>
+
+			<Modal
+				visible={showCourtModal}
+				transparent={true}
+				animationType="fade"
+				onRequestClose={() => setShowCourtModal(false)}
+			>
+				<View className='flex-1 justify-center items-center bg-black/50'>
+					<View className='bg-white p-6 rounded-lg m-4 w-80'>
+						<Text className='text-xl font-semibold mb-4 text-gray-800'>Number of Courts</Text>
+						<View className='flex-row items-center justify-center mb-4 gap-3'>
+							<TouchableOpacity
+								className='bg-gray-200 p-3 rounded-lg'
+								onPress={() => {
+									const current = parseInt(courtCount, 10) || 1;
+									if (current > 1) {
+										setCourtCount((current - 1).toString());
+									}
+								}}
+							>
+								<Minus size={24} color='#374151' />
+							</TouchableOpacity>
+							<TextInput
+								className='border border-gray-300 rounded-lg px-4 py-3 text-lg text-center w-24'
+								value={courtCount}
+								onChangeText={setCourtCount}
+								keyboardType="number-pad"
+								placeholder="1"
+							/>
+							<TouchableOpacity
+								className='bg-gray-200 p-3 rounded-lg'
+								onPress={() => {
+									const current = parseInt(courtCount, 10) || 1;
+									setCourtCount((current + 1).toString());
+								}}
+							>
+								<Plus size={24} color='#374151' />
+							</TouchableOpacity>
+						</View>
+						<View className='flex-row gap-2'>
+							<TouchableOpacity
+								className='flex-1 bg-gray-300 px-4 py-3 rounded-lg'
+								onPress={() => {
+									setShowCourtModal(false);
+									setCourtCount("1");
+								}}
+							>
+								<Text className='text-gray-800 font-semibold text-center'>Cancel</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								className='flex-1 bg-blue-500 px-4 py-3 rounded-lg'
+								onPress={handleConfirmCreateSession}
+							>
+								<Text className='text-white font-semibold text-center'>Create</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				</View>
+			</Modal>
 		</View>
 	);
 }

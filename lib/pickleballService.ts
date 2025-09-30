@@ -17,8 +17,12 @@ export interface PlayerWeight {
 	weight: number;
 }
 
-export async function createSession(): Promise<Session> {
-	const { data, error } = await supabase.from("sessions").insert({}).select().single();
+export async function createSession(courtCount: number = 1): Promise<Session> {
+	const { data, error } = await supabase
+		.from("sessions")
+		.insert({ court_count: courtCount })
+		.select()
+		.single();
 
 	if (error) throw error;
 	return data;
