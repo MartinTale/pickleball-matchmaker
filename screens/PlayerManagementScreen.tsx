@@ -199,8 +199,25 @@ export default function PlayerManagementScreen() {
 		}
 	};
 
+	const getWeightColor = (weight: number) => {
+		const weights = Array.from(playerWeights.values());
+		if (weights.length === 0) return { bg: "bg-gray-100", text: "text-gray-700" };
+
+		const minWeight = Math.min(...weights);
+		const maxWeight = Math.max(...weights);
+
+		if (weight === minWeight) {
+			return { bg: "bg-green-100", text: "text-green-700" };
+		} else if (weight === maxWeight) {
+			return { bg: "bg-red-100", text: "text-red-700" };
+		} else {
+			return { bg: "bg-yellow-100", text: "text-yellow-700" };
+		}
+	};
+
 	const renderPlayer = ({ item }: { item: Player }) => {
 		const weight = playerWeights.get(item.id);
+		const weightColors = weight !== undefined ? getWeightColor(weight) : { bg: "bg-gray-100", text: "text-gray-700" };
 
 		return (
 			<View className='flex-row items-center justify-between bg-white p-3 m-1 rounded-lg border border-gray-200'>
@@ -214,8 +231,8 @@ export default function PlayerManagementScreen() {
 						<Text className='text-gray-800 font-medium'>{item.name}</Text>
 					</View>
 					{weight !== undefined && (
-						<View className='bg-blue-100 px-2 py-1 rounded-full mr-2'>
-							<Text className='text-blue-700 text-xs font-semibold'>{weight.toFixed(0)}</Text>
+						<View className={`${weightColors.bg} px-2 py-1 rounded-full mr-2`}>
+							<Text className={`${weightColors.text} text-xs font-semibold`}>{weight.toFixed(0)}</Text>
 						</View>
 					)}
 				</View>
@@ -232,6 +249,7 @@ export default function PlayerManagementScreen() {
 	const renderDeletedPlayer = ({ item }: { item: Player }) => {
 		const deletedDate = new Date(item.deleted_at || "");
 		const weight = playerWeights.get(item.id);
+		const weightColors = weight !== undefined ? getWeightColor(weight) : { bg: "bg-gray-100", text: "text-gray-700" };
 
 		return (
 			<View className='flex-row items-center justify-between bg-gray-50 p-3 m-1 rounded-lg border border-gray-200'>
@@ -249,8 +267,8 @@ export default function PlayerManagementScreen() {
 						</Text>
 					</View>
 					{weight !== undefined && (
-						<View className='bg-gray-200 px-2 py-1 rounded-full mr-2'>
-							<Text className='text-gray-600 text-xs font-semibold'>{weight.toFixed(0)}</Text>
+						<View className={`${weightColors.bg} px-2 py-1 rounded-full mr-2`}>
+							<Text className={`${weightColors.text} text-xs font-semibold`}>{weight.toFixed(0)}</Text>
 						</View>
 					)}
 				</View>
