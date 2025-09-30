@@ -38,14 +38,13 @@ export async function deleteSession(sessionId: string): Promise<void> {
 }
 
 export async function addPlayer(sessionId: string, name: string): Promise<Player> {
-	// Get the minimum weight from existing players to start new player at lowest level
+	// Get the minimum weight from ALL existing players (including deleted) to start new player at lowest level
 	const { data: existingPlayers } = await supabase
 		.from("players")
 		.select("matches_played")
-		.eq("session_id", sessionId)
-		.is("deleted_at", null);
+		.eq("session_id", sessionId);
 
-	// Calculate the minimum weight (matches_played * 100) from existing players
+	// Calculate the minimum weight (matches_played * 100) from all existing players
 	const minWeight = existingPlayers && existingPlayers.length > 0
 		? Math.min(...existingPlayers.map(p => (p.matches_played || 0) * 100))
 		: 0;
@@ -113,20 +112,13 @@ export async function completeMatch(matchId: string): Promise<void> {
 		.filter((id): id is string => id !== null);
 
 	if (playerIds.length > 0) {
-		// Mark players as available and update their match history
+		// Mark players as available (weight was already incremented when round was generated)
 		for (const playerId of playerIds) {
-			const { data: player } = await supabase
-				.from("players")
-				.select("matches_played")
-				.eq("id", playerId)
-				.single();
-
 			const { error: updateError } = await supabase
 				.from("players")
 				.update({
 					is_available: true,
 					last_match_round: match.round_number,
-					matches_played: (player?.matches_played || 0) + 1,
 				})
 				.eq("id", playerId)
 				.is("deleted_at", null);
@@ -432,14 +424,45 @@ export async function generateRound(
 		);
 	}
 
-	// Mark all selected players as unavailable
+	// Mark all selected players as unavailable and increment their matches_played
 	if (allPlayerIdsToMarkUnavailable.length > 0) {
-		const { error: updateError } = await supabase
-			.from("players")
-			.update({ is_available: false })
-			.in("id", allPlayerIdsToMarkUnavailable);
+		for (const playerId of allPlayerIdsToMarkUnavailable) {
+			const { data: player } = await supabase
+				.from("players")
+				.select("matches_played")
+				.eq("id", playerId)
+				.single();
 
-		if (updateError) throw updateError;
+			const { error: updateError } = await supabase
+				.from("players")
+				.update({
+					is_available: false,
+					matches_played: (player?.matches_played || 0) + 1,
+				})
+				.eq("id", playerId);
+
+			if (updateError) throw updateError;
+		}
+	}
+
+	// Increment matches_played for removed players (soft-deleted)
+	const { data: removedPlayers } = await supabase
+		.from("players")
+		.select("id, matches_played")
+		.eq("session_id", sessionId)
+		.not("deleted_at", "is", null);
+
+	if (removedPlayers && removedPlayers.length > 0) {
+		for (const player of removedPlayers) {
+			const { error: updateError } = await supabase
+				.from("players")
+				.update({
+					matches_played: (player.matches_played || 0) + 1,
+				})
+				.eq("id", player.id);
+
+			if (updateError) throw updateError;
+		}
 	}
 
 	return createdMatches;
