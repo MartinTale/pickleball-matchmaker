@@ -151,9 +151,36 @@ export default function SessionDetailScreen() {
 		const courtCount = session?.court_count || 1;
 		const availablePlayers = players.filter((p) => p.is_available);
 		const playersNeeded = courtCount * 4;
+		const maxPossibleMatches = Math.floor(availablePlayers.length / 4);
 
-		if (availablePlayers.length < playersNeeded) {
-			Alert.alert("Error", `Need at least ${playersNeeded} available players to generate ${courtCount} match(es)`);
+		if (availablePlayers.length < 4) {
+			Alert.alert("Error", "Need at least 4 available players to generate a match");
+			return;
+		}
+
+		// If we can't fill all courts, show warning
+		if (maxPossibleMatches < courtCount) {
+			Alert.alert(
+				"Partial Round",
+				`Only ${availablePlayers.length} players available. This will generate ${maxPossibleMatches} match(es) instead of ${courtCount}.\n\nContinue?`,
+				[
+					{
+						text: "Cancel",
+						style: "cancel",
+					},
+					{
+						text: "Continue",
+						onPress: async () => {
+							try {
+								await generateRound(sessionId, currentRound, maxPossibleMatches);
+							} catch (error) {
+								console.error("Error generating round:", error);
+								Alert.alert("Error", "Failed to generate round");
+							}
+						},
+					},
+				]
+			);
 			return;
 		}
 
@@ -241,8 +268,8 @@ export default function SessionDetailScreen() {
 
 	const availablePlayers = players.filter((p) => p.is_available);
 	const courtCount = session?.court_count || 1;
-	const playersNeeded = courtCount * 4;
-	const canGenerateRound = availablePlayers.length >= playersNeeded;
+	const maxPossibleMatches = Math.floor(availablePlayers.length / 4);
+	const canGenerateRound = availablePlayers.length >= 4;
 
 	return (
 		<ScrollView className='flex-1 bg-gray-50'>
@@ -289,7 +316,12 @@ export default function SessionDetailScreen() {
 				</TouchableOpacity>
 				{!canGenerateRound && (
 					<Text className='text-gray-500 text-center text-sm mt-2'>
-						Need at least {playersNeeded} available players to generate {courtCount} match(es)
+						Need at least 4 available players to generate a match
+					</Text>
+				)}
+				{canGenerateRound && maxPossibleMatches < courtCount && (
+					<Text className='text-orange-600 text-center text-sm mt-2'>
+						⚠️ Only enough players for {maxPossibleMatches} of {courtCount} court(s)
 					</Text>
 				)}
 			</View>
