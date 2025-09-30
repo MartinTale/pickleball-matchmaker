@@ -4,7 +4,12 @@ import { useRoute, RouteProp } from "@react-navigation/native";
 import { Trash2, RotateCcw } from "lucide-react-native";
 import { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabaseClient";
-import { addPlayer, removePlayer, restorePlayer } from "../lib/pickleballService";
+import {
+	addPlayer,
+	removePlayer,
+	restorePlayer,
+	calculatePlayerWeights,
+} from "../lib/pickleballService";
 import { Database } from "../lib/database.types";
 
 type Player = Database["public"]["Tables"]["players"]["Row"];
@@ -16,6 +21,7 @@ export default function PlayerManagementScreen() {
 
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [deletedPlayers, setDeletedPlayers] = useState<Player[]>([]);
+	const [playerWeights, setPlayerWeights] = useState<Map<string, number>>(new Map());
 	const [newPlayerName, setNewPlayerName] = useState("");
 	const [loading, setLoading] = useState(true);
 
@@ -71,6 +77,29 @@ export default function PlayerManagementScreen() {
 
 			setPlayers(playersData || []);
 			setDeletedPlayers(deletedPlayersData || []);
+
+			// Calculate current round number
+			const { data: matches } = await supabase
+				.from("matches")
+				.select("round_number")
+				.eq("session_id", sessionId)
+				.order("round_number", { ascending: false })
+				.limit(1);
+
+			const currentRound = (matches?.[0]?.round_number || 0) + 1;
+
+			// Calculate player weights for all players (including unavailable) for display
+			try {
+				const weights = await calculatePlayerWeights(sessionId, true);
+				const weightMap = new Map();
+				weights.forEach(({ player, weight }) => {
+					weightMap.set(player.id, weight);
+				});
+				setPlayerWeights(weightMap);
+			} catch (weightError) {
+				console.log("Could not calculate weights:", weightError);
+				setPlayerWeights(new Map());
+			}
 		} catch (error) {
 			console.error("Error fetching players:", error);
 			Alert.alert("Error", "Failed to fetch players");
@@ -125,31 +154,12 @@ export default function PlayerManagementScreen() {
 	};
 
 	const handleAddDemoPlayer = async () => {
-		const baseNames = [
-			"Alex Chen",
-			"Sam Rodriguez",
-			"Jordan Smith",
-			"Taylor Johnson",
-			"Morgan Davis",
-			"Casey Brown",
-			"Riley Wilson",
-			"Cameron Lee",
-			"Avery Martinez",
-			"Drew Thompson",
-			"Blake Anderson",
-			"Parker Garcia",
-			"Quinn Miller",
-			"Sage Williams",
-			"Dakota Jones",
-		];
-
 		// Find the next available demo player number
-		const existingDemoPlayers = players.filter((p) => p.name.match(/^\d+\.\s/));
-		const existingNumbers = existingDemoPlayers.map((p) => parseInt(p.name.split(".")[0]));
+		const existingDemoPlayers = players.filter((p) => p.name.match(/^Player \d+$/));
+		const existingNumbers = existingDemoPlayers.map((p) => parseInt(p.name.split(" ")[1]));
 		const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
 
-		const randomBaseName = baseNames[Math.floor(Math.random() * baseNames.length)];
-		const demoPlayerName = `${nextNumber}. ${randomBaseName}`;
+		const demoPlayerName = `Player ${nextNumber}`;
 
 		try {
 			await addPlayer(sessionId, demoPlayerName);
@@ -173,7 +183,7 @@ export default function PlayerManagementScreen() {
 			if (playerToRestore) {
 				setPlayers((prev) => [
 					...prev,
-					{ ...playerToRestore, deleted_at: null, is_available: true }
+					{ ...playerToRestore, deleted_at: null, is_available: true },
 				]);
 			}
 
@@ -189,27 +199,58 @@ export default function PlayerManagementScreen() {
 		}
 	};
 
-	const renderPlayer = ({ item }: { item: Player }) => (
-		<View className='flex-row items-center justify-between bg-white p-3 m-1 rounded-lg border border-gray-200'>
-			<View className='flex-row items-center'>
-				<View
-					className={`w-3 h-3 rounded-full mr-3 ${
-						item.is_available ? "bg-green-500" : "bg-red-500"
-					}`}
-				/>
-				<Text className='text-gray-800 font-medium'>{item.name}</Text>
+	const getWeightColor = (weight: number) => {
+		const weights = Array.from(playerWeights.values());
+		if (weights.length === 0) return { bg: "bg-gray-100", text: "text-gray-700" };
+
+		const minWeight = Math.min(...weights);
+		const maxWeight = Math.max(...weights);
+
+		if (weight === minWeight) {
+			return { bg: "bg-green-100", text: "text-green-700" };
+		} else if (weight === maxWeight) {
+			return { bg: "bg-red-100", text: "text-red-700" };
+		} else {
+			return { bg: "bg-yellow-100", text: "text-yellow-700" };
+		}
+	};
+
+	const renderPlayer = ({ item }: { item: Player }) => {
+		const weight = playerWeights.get(item.id);
+		const weightColors = weight !== undefined ? getWeightColor(weight) : { bg: "bg-gray-100", text: "text-gray-700" };
+
+		return (
+			<View className='flex-row items-center justify-between bg-white p-3 m-1 rounded-lg border border-gray-200'>
+				<View className='flex-row items-center flex-1'>
+					<View
+						className={`w-3 h-3 rounded-full mr-3 ${
+							item.is_available ? "bg-green-500" : "bg-red-500"
+						}`}
+					/>
+					<View className='flex-1'>
+						<Text className='text-gray-800 font-medium'>{item.name}</Text>
+					</View>
+					{weight !== undefined && (
+						<View className={`${weightColors.bg} px-2 py-1 rounded-full mr-2`}>
+							<Text className={`${weightColors.text} text-xs font-semibold`}>{weight.toFixed(0)}</Text>
+						</View>
+					)}
+				</View>
+				<TouchableOpacity
+					className='bg-red-500 p-1 rounded'
+					onPress={() => handleRemovePlayer(item.id)}
+				>
+					<Trash2 size={16} color='white' />
+				</TouchableOpacity>
 			</View>
-			<TouchableOpacity
-				className='bg-red-500 p-1 rounded'
-				onPress={() => handleRemovePlayer(item.id)}
-			>
-				<Trash2 size={16} color='white' />
-			</TouchableOpacity>
-		</View>
-	);
+		);
+	};
 
 	const renderDeletedPlayer = ({ item }: { item: Player }) => {
 		const deletedDate = new Date(item.deleted_at || "");
+		const weight = playerWeights.get(item.id);
+		const weightColors = weight !== undefined ? getWeightColor(weight) : { bg: "bg-gray-100", text: "text-gray-700" };
+
 		return (
 			<View className='flex-row items-center justify-between bg-gray-50 p-3 m-1 rounded-lg border border-gray-200'>
 				<View className='flex-row items-center flex-1'>
@@ -225,6 +266,11 @@ export default function PlayerManagementScreen() {
 							})}
 						</Text>
 					</View>
+					{weight !== undefined && (
+						<View className={`${weightColors.bg} px-2 py-1 rounded-full mr-2`}>
+							<Text className={`${weightColors.text} text-xs font-semibold`}>{weight.toFixed(0)}</Text>
+						</View>
+					)}
 				</View>
 				<TouchableOpacity
 					className='bg-green-500 p-1 rounded'

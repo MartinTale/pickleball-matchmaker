@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, Alert, ScrollView, SectionList } from "react-native";
 import { useRoute, RouteProp, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../App";
@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabaseClient";
 import { generateRound, completeMatch } from "../lib/pickleballService";
 import { Database } from "../lib/database.types";
 
+type Session = Database["public"]["Tables"]["sessions"]["Row"];
 type Player = Database["public"]["Tables"]["players"]["Row"];
 type Match = Database["public"]["Tables"]["matches"]["Row"];
 type MatchPlayer = Database["public"]["Tables"]["match_players"]["Row"];
@@ -19,11 +20,18 @@ interface MatchWithDetails extends Match {
 	})[];
 }
 
+interface MatchSection {
+	title: string;
+	data: MatchWithDetails[];
+	roundNumber: number;
+}
+
 export default function SessionDetailScreen() {
 	const route = useRoute<RouteProps>();
 	const navigation = useNavigation<NavigationProp>();
 	const { sessionId } = route.params;
 
+	const [session, setSession] = useState<Session | null>(null);
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [matches, setMatches] = useState<MatchWithDetails[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -96,6 +104,15 @@ export default function SessionDetailScreen() {
 
 	const fetchSessionData = async () => {
 		try {
+			// Fetch session details
+			const { data: sessionData, error: sessionError } = await supabase
+				.from("sessions")
+				.select("*")
+				.eq("id", sessionId)
+				.single();
+
+			if (sessionError) throw sessionError;
+
 			// Fetch active players (excluding soft-deleted) for counts only
 			const { data: playersData, error: playersError } = await supabase
 				.from("players")
@@ -121,6 +138,7 @@ export default function SessionDetailScreen() {
 
 			if (matchesError) throw matchesError;
 
+			setSession(sessionData);
 			setPlayers(playersData || []);
 			setMatches((matchesData as MatchWithDetails[]) || []);
 
@@ -136,14 +154,44 @@ export default function SessionDetailScreen() {
 	};
 
 	const handleGenerateRound = async () => {
+		const courtCount = session?.court_count || 1;
 		const availablePlayers = players.filter((p) => p.is_available);
+		const playersNeeded = courtCount * 4;
+		const maxPossibleMatches = Math.floor(availablePlayers.length / 4);
+
 		if (availablePlayers.length < 4) {
-			Alert.alert("Error", "Need at least 4 available players to generate matches");
+			Alert.alert("Error", "Need at least 4 available players to generate a match");
+			return;
+		}
+
+		// If we can't fill all courts, show warning
+		if (maxPossibleMatches < courtCount) {
+			Alert.alert(
+				"Partial Round",
+				`Only ${availablePlayers.length} players available. This will generate ${maxPossibleMatches} match(es) instead of ${courtCount}.\n\nContinue?`,
+				[
+					{
+						text: "Cancel",
+						style: "cancel",
+					},
+					{
+						text: "Continue",
+						onPress: async () => {
+							try {
+								await generateRound(sessionId, currentRound, maxPossibleMatches);
+							} catch (error) {
+								console.error("Error generating round:", error);
+								Alert.alert("Error", "Failed to generate round");
+							}
+						},
+					},
+				]
+			);
 			return;
 		}
 
 		try {
-			await generateRound(sessionId, currentRound);
+			await generateRound(sessionId, currentRound, courtCount);
 		} catch (error) {
 			console.error("Error generating round:", error);
 			Alert.alert("Error", "Failed to generate round");
@@ -164,25 +212,8 @@ export default function SessionDetailScreen() {
 		const team2 = item.match_players.filter((mp) => mp.team === 2);
 
 		return (
-			<View className='bg-white p-4 m-2 rounded-lg border border-gray-200'>
-				<View className='flex-row justify-between items-center mb-3'>
-					<Text className='text-lg font-semibold'>Round {item.round_number}</Text>
-					<View
-						className={`px-2 py-1 rounded ${
-							item.status === "active" ? "bg-green-100" : "bg-gray-100"
-						}`}
-					>
-						<Text
-							className={`text-sm font-medium ${
-								item.status === "active" ? "text-green-800" : "text-gray-600"
-							}`}
-						>
-							{item.status}
-						</Text>
-					</View>
-				</View>
-
-				<View className='flex-row justify-between'>
+			<View className='bg-white p-4 mb-2 rounded-lg border border-gray-200'>
+				<View className='flex-row justify-between items-center'>
 					<View className='flex-1 mr-2'>
 						<Text className='font-medium text-blue-600 mb-1'>Team 1</Text>
 						{team1.map((mp) => (
@@ -192,7 +223,7 @@ export default function SessionDetailScreen() {
 						))}
 					</View>
 
-					<Text className='text-gray-400 font-bold text-lg self-center'>VS</Text>
+					<Text className='text-gray-400 font-bold text-lg px-2'>VS</Text>
 
 					<View className='flex-1 ml-2'>
 						<Text className='font-medium text-red-600 mb-1 text-right'>Team 2</Text>
@@ -225,6 +256,9 @@ export default function SessionDetailScreen() {
 	}
 
 	const availablePlayers = players.filter((p) => p.is_available);
+	const courtCount = session?.court_count || 1;
+	const maxPossibleMatches = Math.floor(availablePlayers.length / 4);
+	const canGenerateRound = availablePlayers.length >= 4;
 
 	return (
 		<ScrollView className='flex-1 bg-gray-50'>
@@ -237,9 +271,13 @@ export default function SessionDetailScreen() {
 						<Text className='text-blue-700 text-lg font-bold'>{players.length}</Text>
 						<Text className='text-blue-600 text-sm'>Total Players</Text>
 					</View>
-					<View className='bg-green-100 px-4 py-3 rounded-lg flex-1 ml-2'>
+					<View className='bg-green-100 px-4 py-3 rounded-lg flex-1 mx-2'>
 						<Text className='text-green-700 text-lg font-bold'>{availablePlayers.length}</Text>
 						<Text className='text-green-600 text-sm'>Available</Text>
+					</View>
+					<View className='bg-purple-100 px-4 py-3 rounded-lg flex-1 ml-2'>
+						<Text className='text-purple-700 text-lg font-bold'>{courtCount}</Text>
+						<Text className='text-purple-600 text-sm'>Courts</Text>
 					</View>
 				</View>
 
@@ -256,18 +294,23 @@ export default function SessionDetailScreen() {
 				<Text className='text-lg font-bold text-gray-800 mb-3'>Round Management</Text>
 				<TouchableOpacity
 					className={`px-6 py-3 rounded-lg ${
-						availablePlayers.length >= 4 ? "bg-blue-500" : "bg-gray-400"
+						canGenerateRound ? "bg-blue-500" : "bg-gray-400"
 					}`}
 					onPress={handleGenerateRound}
-					disabled={availablePlayers.length < 4}
+					disabled={!canGenerateRound}
 				>
 					<Text className='text-white font-semibold text-center text-lg'>
 						Generate Round {currentRound}
 					</Text>
 				</TouchableOpacity>
-				{availablePlayers.length < 4 && (
+				{!canGenerateRound && (
 					<Text className='text-gray-500 text-center text-sm mt-2'>
-						Need at least 4 available players to generate matches
+						Need at least 4 available players to generate a match
+					</Text>
+				)}
+				{canGenerateRound && maxPossibleMatches < courtCount && (
+					<Text className='text-orange-600 text-center text-sm mt-2'>
+						⚠️ Only enough players for {maxPossibleMatches} of {courtCount} court(s)
 					</Text>
 				)}
 			</View>
@@ -276,11 +319,36 @@ export default function SessionDetailScreen() {
 			{matches.length > 0 && (
 				<View className='p-4'>
 					<Text className='text-lg font-bold text-gray-800 mb-3'>Matches</Text>
-					<FlatList
-						data={matches}
+					<SectionList
+						sections={(() => {
+							// Group matches by round number
+							const matchesByRound = new Map<number, MatchWithDetails[]>();
+							matches.forEach(match => {
+								const round = match.round_number;
+								if (!matchesByRound.has(round)) {
+									matchesByRound.set(round, []);
+								}
+								matchesByRound.get(round)!.push(match);
+							});
+
+							// Convert to sections array and sort by round descending
+							return Array.from(matchesByRound.entries())
+								.sort(([a], [b]) => b - a)
+								.map(([roundNumber, roundMatches]) => ({
+									title: `Round ${roundNumber}`,
+									data: roundMatches,
+									roundNumber,
+								}));
+						})()}
 						keyExtractor={(item) => item.id}
 						renderItem={renderMatch}
+						renderSectionHeader={({ section }) => (
+							<View className='bg-gray-100 px-4 py-2 mb-2 rounded-lg'>
+								<Text className='text-base font-bold text-gray-800'>{section.title}</Text>
+							</View>
+						)}
 						scrollEnabled={false}
+						stickySectionHeadersEnabled={false}
 					/>
 				</View>
 			)}
