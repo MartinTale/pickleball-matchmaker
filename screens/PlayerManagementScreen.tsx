@@ -83,9 +83,9 @@ export default function PlayerManagementScreen() {
 
 			const currentRound = (matches?.[0]?.round_number || 0) + 1;
 
-			// Calculate player weights
+			// Calculate player weights for all players (including unavailable) for display
 			try {
-				const weights = await calculatePlayerWeights(sessionId, currentRound);
+				const weights = await calculatePlayerWeights(sessionId, true);
 				const weightMap = new Map();
 				weights.forEach(({ player, weight }) => {
 					weightMap.set(player.id, weight);
@@ -207,13 +207,13 @@ export default function PlayerManagementScreen() {
 					/>
 					<View className='flex-1'>
 						<Text className='text-gray-800 font-medium'>{item.name}</Text>
-						{weight !== undefined && item.is_available && (
+						{weight !== undefined && (
 							<Text className='text-xs text-blue-600 mt-1'>
 								Priority: {weight} • Matches: {item.matches_played || 0} • Last: Round {item.last_match_round || 0}
 							</Text>
 						)}
 					</View>
-					{weight !== undefined && item.is_available && (
+					{weight !== undefined && (
 						<View className='bg-blue-100 px-2 py-1 rounded-full mr-2'>
 							<Text className='text-blue-700 text-xs font-semibold'>{weight}</Text>
 						</View>
@@ -231,12 +231,19 @@ export default function PlayerManagementScreen() {
 
 	const renderDeletedPlayer = ({ item }: { item: Player }) => {
 		const deletedDate = new Date(item.deleted_at || "");
+		const weight = playerWeights.get(item.id);
+
 		return (
 			<View className='flex-row items-center justify-between bg-gray-50 p-3 m-1 rounded-lg border border-gray-200'>
 				<View className='flex-row items-center flex-1'>
 					<View className='w-3 h-3 rounded-full mr-3 bg-gray-400' />
 					<View className='flex-1'>
 						<Text className='text-gray-600 font-medium'>{item.name}</Text>
+						{weight !== undefined && (
+							<Text className='text-xs text-gray-500 mt-1'>
+								Priority: {weight} • Matches: {item.matches_played || 0} • Last: Round {item.last_match_round || 0}
+							</Text>
+						)}
 						<Text className='text-xs text-gray-400 mt-1'>
 							Removed {deletedDate.toLocaleDateString()} at{" "}
 							{deletedDate.toLocaleTimeString("en-US", {
@@ -246,6 +253,11 @@ export default function PlayerManagementScreen() {
 							})}
 						</Text>
 					</View>
+					{weight !== undefined && (
+						<View className='bg-gray-200 px-2 py-1 rounded-full mr-2'>
+							<Text className='text-gray-600 text-xs font-semibold'>{weight}</Text>
+						</View>
+					)}
 				</View>
 				<TouchableOpacity
 					className='bg-green-500 p-1 rounded'

@@ -214,15 +214,22 @@ async function upsertPlayerHistory(
 }
 
 export async function calculatePlayerWeights(
-	sessionId: string
+	sessionId: string,
+	includeAllPlayers: boolean = false
 ): Promise<PlayerWeight[]> {
-	// Get all available players
-	const { data: players, error: playersError } = await supabase
+	// Get players based on filter
+	let query = supabase
 		.from("players")
 		.select("*")
-		.eq("session_id", sessionId)
-		.eq("is_available", true)
-		.is("deleted_at", null);
+		.eq("session_id", sessionId);
+
+	if (!includeAllPlayers) {
+		// Original behavior: only available, non-deleted players
+		query = query.eq("is_available", true).is("deleted_at", null);
+	}
+	// When includeAllPlayers is true, get ALL players including deleted ones
+
+	const { data: players, error: playersError } = await query;
 
 	if (playersError) throw playersError;
 	if (!players) return [];
