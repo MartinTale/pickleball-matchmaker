@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, Alert, ScrollView, SectionList } from "react-native";
 import { useRoute, RouteProp, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { RootStackParamList } from "../App";
@@ -18,6 +18,12 @@ interface MatchWithDetails extends Match {
 	match_players: (MatchPlayer & {
 		players: Pick<Player, "id" | "name"> | null;
 	})[];
+}
+
+interface MatchSection {
+	title: string;
+	data: MatchWithDetails[];
+	roundNumber: number;
 }
 
 export default function SessionDetailScreen() {
@@ -206,25 +212,8 @@ export default function SessionDetailScreen() {
 		const team2 = item.match_players.filter((mp) => mp.team === 2);
 
 		return (
-			<View className='bg-white p-4 m-2 rounded-lg border border-gray-200'>
-				<View className='flex-row justify-between items-center mb-3'>
-					<Text className='text-lg font-semibold'>Round {item.round_number}</Text>
-					<View
-						className={`px-2 py-1 rounded ${
-							item.status === "active" ? "bg-green-100" : "bg-gray-100"
-						}`}
-					>
-						<Text
-							className={`text-sm font-medium ${
-								item.status === "active" ? "text-green-800" : "text-gray-600"
-							}`}
-						>
-							{item.status}
-						</Text>
-					</View>
-				</View>
-
-				<View className='flex-row justify-between'>
+			<View className='bg-white p-4 mb-2 rounded-lg border border-gray-200'>
+				<View className='flex-row justify-between items-center'>
 					<View className='flex-1 mr-2'>
 						<Text className='font-medium text-blue-600 mb-1'>Team 1</Text>
 						{team1.map((mp) => (
@@ -234,7 +223,7 @@ export default function SessionDetailScreen() {
 						))}
 					</View>
 
-					<Text className='text-gray-400 font-bold text-lg self-center'>VS</Text>
+					<Text className='text-gray-400 font-bold text-lg px-2'>VS</Text>
 
 					<View className='flex-1 ml-2'>
 						<Text className='font-medium text-red-600 mb-1 text-right'>Team 2</Text>
@@ -330,11 +319,36 @@ export default function SessionDetailScreen() {
 			{matches.length > 0 && (
 				<View className='p-4'>
 					<Text className='text-lg font-bold text-gray-800 mb-3'>Matches</Text>
-					<FlatList
-						data={matches}
+					<SectionList
+						sections={(() => {
+							// Group matches by round number
+							const matchesByRound = new Map<number, MatchWithDetails[]>();
+							matches.forEach(match => {
+								const round = match.round_number;
+								if (!matchesByRound.has(round)) {
+									matchesByRound.set(round, []);
+								}
+								matchesByRound.get(round)!.push(match);
+							});
+
+							// Convert to sections array and sort by round descending
+							return Array.from(matchesByRound.entries())
+								.sort(([a], [b]) => b - a)
+								.map(([roundNumber, roundMatches]) => ({
+									title: `Round ${roundNumber}`,
+									data: roundMatches,
+									roundNumber,
+								}));
+						})()}
 						keyExtractor={(item) => item.id}
 						renderItem={renderMatch}
+						renderSectionHeader={({ section }) => (
+							<View className='bg-gray-100 px-4 py-2 mb-2 rounded-lg'>
+								<Text className='text-base font-bold text-gray-800'>{section.title}</Text>
+							</View>
+						)}
 						scrollEnabled={false}
+						stickySectionHeadersEnabled={false}
 					/>
 				</View>
 			)}
