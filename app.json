@@ -37,6 +37,12 @@
         "projectId": "63545da8-bba9-4f51-90f6-8aa01543a4f6"
       }
     },
+    "updates": {
+      "url": "https://u.expo.dev/63545da8-bba9-4f51-90f6-8aa01543a4f6"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "plugins": [
       [
         "@sentry/react-native/expo",
